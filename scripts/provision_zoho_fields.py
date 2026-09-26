@@ -29,7 +29,7 @@ FIELDS_FILE = Path(__file__).resolve().parents[1] / "zoho" / "fields.json"
 
 _TYPE_PAYLOAD = {
     "text": lambda f: {"data_type": "text", "length": f.get("length", 255)},
-    "textarea": lambda f: {"data_type": "textarea", "length": 32000},
+    "textarea": lambda f: {"data_type": "textarea"},  # sub-type added per attempt, see _TEXTAREA_VARIANTS
     "integer": lambda f: {"data_type": "integer"},
     "double": lambda f: {"data_type": "double", "decimal_place": 2},
     "date": lambda f: {"data_type": "date"},
@@ -42,6 +42,35 @@ _TYPE_PAYLOAD = {
         ],
     },
 }
+
+
+# Zoho requires a nested "textarea" object naming the sub-type; the accepted
+# enum differs between API versions/DCs, so try known variants in order.
+_TEXTAREA_VARIANTS = [
+    {"textarea": {"type": "plain_text_large"}},
+    {"textarea": {"type": "plain_text_small"}},
+    {"textarea": {"type": "plain"}},
+    {"textarea": {"type": "large"}},
+]
+
+
+def create_field(client: ZohoHTTPClient, module: str, payload: dict) -> None:
+    if payload.get("data_type") != "textarea":
+        client._request("POST", "/crm/v8/settings/fields",
+                        params={"module": module}, json={"fields": [payload]})
+        return
+    last_err: Exception | None = None
+    for variant in _TEXTAREA_VARIANTS:
+        try:
+            client._request("POST", "/crm/v8/settings/fields",
+                            params={"module": module},
+                            json={"fields": [{**payload, **variant}]})
+            return
+        except Exception as e:  # try the next enum spelling on 400s
+            last_err = e
+            if "400" not in str(e):
+                raise
+    raise last_err  # none of the variants was accepted
 
 
 def existing_field_names(client: ZohoHTTPClient, module: str) -> set[str]:
@@ -76,12 +105,7 @@ def main() -> int:
                 print(f"[would create] {module}.{name}: {payload}")
                 continue
             try:
-                client._request(
-                    "POST",
-                    "/crm/v8/settings/fields",
-                    params={"module": module},
-                    json={"fields": [payload]},
-                )
+                create_field(client, module, payload)
                 print(f"[created] {module}.{name}")
             except Exception as e:  # keep going; report at end
                 print(f"[ERROR] {module}.{name}: {e}", file=sys.stderr)
