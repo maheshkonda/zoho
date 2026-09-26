@@ -45,7 +45,7 @@ def handle_smartlead_event(ctx: Context, event: dict[str, Any]) -> dict[str, Any
     status, extra = _EVENT_MAP[event_type]
     fields: dict[str, Any] = {
         f.C_APPROVAL_STATUS: status.value,
-        f.C_LAST_OUTREACH: datetime.now(timezone.utc).isoformat(),
+        f.C_LAST_OUTREACH: datetime.now(timezone.utc).isoformat(timespec="seconds"),
         **extra,
     }
     ctx.zoho.update_contact(contact["id"], fields)

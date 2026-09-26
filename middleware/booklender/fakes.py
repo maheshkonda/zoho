@@ -69,6 +69,12 @@ class FakeZoho:
     def update_contact(self, contact_id, fields):
         self.contacts[contact_id].update(fields)
 
+    def list_accounts(self, fields=None):
+        return list(self.accounts.values())
+
+    def list_contacts(self, fields=None):
+        return list(self.contacts.values())
+
 
 class FakeApollo:
     def __init__(self):

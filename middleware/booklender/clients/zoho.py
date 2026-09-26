@@ -121,3 +121,18 @@ class ZohoHTTPClient:
 
     def update_contact(self, contact_id: str, fields: dict[str, Any]) -> None:
         self._request("PUT", f"/crm/v8/Contacts/{contact_id}", json={"data": [fields]})
+
+    # ----- listing (console/dashboard reads) --------------------------------
+    def list_accounts(self, fields: list[str]) -> list[dict[str, Any]]:
+        data = self._request(
+            "GET", "/crm/v8/Accounts",
+            params={"fields": ",".join(fields), "per_page": 200},
+        )
+        return data.get("data") or []
+
+    def list_contacts(self, fields: list[str]) -> list[dict[str, Any]]:
+        data = self._request(
+            "GET", "/crm/v8/Contacts",
+            params={"fields": ",".join(fields), "per_page": 200},
+        )
+        return data.get("data") or []

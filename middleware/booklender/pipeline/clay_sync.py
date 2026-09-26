@@ -77,7 +77,7 @@ def handle_clay_result(ctx: Context, result: dict[str, Any]) -> dict[str, Any]:
         f.C_AI_CTA: result.get("cta"),
         f.C_CLAY_ID: clay_record_id,
         f.C_CLAY_STATUS: "COMPLETE" if complete else "INCOMPLETE",
-        f.C_LAST_ENRICHED: datetime.now(timezone.utc).isoformat(),
+        f.C_LAST_ENRICHED: datetime.now(timezone.utc).isoformat(timespec="seconds"),
         f.C_APPROVAL_STATUS: new_status.value,
     }
     fields = {k: v for k, v in fields.items() if v is not None}

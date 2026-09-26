@@ -169,7 +169,7 @@ def dispatch_approved_contact(ctx: Context, *, zoho_contact_id: str) -> dict[str
             {
                 f.C_SMARTLEAD_SYNC_STATUS: "ERROR",
                 f.C_INTEGRATION_ERROR: str(e)[:255],
-                f.C_LAST_ATTEMPT: datetime.now(timezone.utc).isoformat(),
+                f.C_LAST_ATTEMPT: datetime.now(timezone.utc).isoformat(timespec="seconds"),
             },
         )
         ctx.audit.record(
@@ -179,7 +179,7 @@ def dispatch_approved_contact(ctx: Context, *, zoho_contact_id: str) -> dict[str
         raise
 
     ctx.idem.set_result(idem_key, lead_id)
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     ctx.zoho.update_contact(
         zoho_contact_id,
         {

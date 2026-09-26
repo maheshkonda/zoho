@@ -101,7 +101,7 @@ footer{padding:4px 20px 16px;color:#98a1ab;font-size:11px}
 
 <div class="topbar">
   <div class="brand">BookLender <span>· RevOps Console</span></div>
-  <span class="envtag">SANDBOX</span>
+  <span class="envtag" id="envtag">SANDBOX</span>
   <div class="right">
     <a onclick="post('/demo/reset')">Reset data</a>
     <span>v1.4.2</span>
@@ -214,6 +214,7 @@ function prospectRow(c){
 
 async function refresh(){
   const s=await(await fetch('/demo/state')).json();
+  document.getElementById('envtag').textContent=s.mode||'SANDBOX';
   const cs=s.contacts, pend=cs.filter(c=>c[F.status]==='PENDING_HUMAN_APPROVAL');
   const active=cs.filter(c=>['SENT_TO_SMARTLEAD','ACTIVE_SEQUENCE'].includes(c[F.status]));
   const replied=cs.filter(c=>c[F.status]==='REPLIED');

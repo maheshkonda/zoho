@@ -30,6 +30,8 @@ from booklender.audit import AuditLog
 from booklender.config import (
     CampaignRule, ContactConfig, ICPConfig, IntentConfig, RetryConfig, Settings,
 )
+from booklender.clients.zoho import ZohoHTTPClient
+from booklender.envfile import load_env
 from booklender.fakes import FakeApollo, FakeClay, FakeSmartlead, FakeZoho
 from booklender.idempotency import IdempotencyStore
 from booklender.pipeline import apollo_discovery, clay_sync, dispatch, engagement, sixsense
@@ -185,7 +187,9 @@ def build_ctx() -> Context:
         retry=RetryConfig(max_attempts=3, base_delay_seconds=0.0, max_delay_seconds=0.0),
         test_mode=False,  # sandbox Smartlead adapter only — no external delivery path
     )
-    ctx = Context(settings=settings, zoho=FakeZoho(), apollo=FakeApollo(),
+    load_env()
+    zoho = ZohoHTTPClient() if ZOHO_LIVE else FakeZoho()
+    ctx = Context(settings=settings, zoho=zoho, apollo=FakeApollo(),
                   clay=FakeClay(), smartlead=FakeSmartlead(),
                   audit=AuditLog(), idem=IdempotencyStore())
     for sc in SCENARIOS.values():
@@ -194,6 +198,21 @@ def build_ctx() -> Context:
     return ctx
 
 
+import os as _os
+load_env()
+ZOHO_LIVE = (_os.environ.get("BOOKLENDER_ZOHO", "").lower() == "real"
+             and _os.environ.get("ZOHO_REFRESH_TOKEN"))
+
+ACCOUNT_LIST_FIELDS = [f.A_NAME, f.A_DOMAIN, f.A_INDUSTRY, f.A_EMPLOYEES,
+                       f.A_INTENT_SCORE, f.A_INTENT_TIER, f.A_INTENT_TOPICS,
+                       f.A_PROSPECT_STATUS]
+CONTACT_LIST_FIELDS = [f.C_FIRST, f.C_LAST, f.C_TITLE, f.C_EMAIL, f.C_ACCOUNT,
+                       f.C_APPROVAL_STATUS, f.C_AI_WORK_MODEL, f.C_AI_CONFIDENCE,
+                       f.C_AI_RESEARCH, f.C_AI_PITCH, f.C_AI_CTA,
+                       f.C_SMARTLEAD_LEAD_ID, f.C_SMARTLEAD_CAMPAIGN_ID,
+                       f.C_OUTREACH_STATUS, f.C_REJECTION_REASON, f.C_APPROVED_BY,
+                       f.C_OPTED_OUT]
+
 app = FastAPI(title="BookLender RevOps Console")
 CTX = build_ctx()
 LOG: list[dict] = []
@@ -201,6 +220,8 @@ _LOCK = threading.Lock()
 
 
 def log(level: str, msg: str):
+    global _STATE_CACHE
+    _STATE_CACHE = None
     with _LOCK:
         LOG.append({"t": datetime.now(timezone.utc).strftime("%H:%M:%S"),
                     "level": level, "msg": msg})
@@ -214,11 +235,15 @@ def index():
 
 @app.post("/demo/reset")
 def reset():
-    global CTX
+    global CTX, _STATE_CACHE
     CTX = build_ctx()
+    _STATE_CACHE = None
     with _LOCK:
         LOG.clear()
-    log("INFO", "sandbox reset · pipeline state cleared")
+    if ZOHO_LIVE:
+        log("INFO", "adapters reset · Zoho CRM records persist (delete in CRM if needed)")
+    else:
+        log("INFO", "sandbox reset · pipeline state cleared")
     return {"ok": True}
 
 
@@ -288,7 +313,7 @@ def approve(contact_id: str, approver: str = "m.konda@booklender.com"):
     if contact.get(f.C_APPROVAL_STATUS) == Status.PENDING_HUMAN_APPROVAL.value:
         CTX.zoho.update_contact(contact_id, {
             f.C_APPROVAL_STATUS: Status.APPROVED.value,
-            f.C_APPROVAL_TS: datetime.now(timezone.utc).isoformat(),
+            f.C_APPROVAL_TS: datetime.now(timezone.utc).isoformat(timespec="seconds"),
             f.C_APPROVED_BY: approver,
         })
         log("INFO", f"approval recorded contact={contact_id} by={approver}")
@@ -357,15 +382,23 @@ def engagement_event(etype: str, contact_id: str):
 
 @app.get("/demo/state")
 def state():
+    global _STATE_CACHE
+    now = datetime.now(timezone.utc).timestamp()
+    if ZOHO_LIVE and _STATE_CACHE and now - _STATE_CACHE[0] < 4:
+        return _STATE_CACHE[1]
+    accounts = CTX.zoho.list_accounts(ACCOUNT_LIST_FIELDS)
+    raw_contacts = CTX.zoho.list_contacts(CONTACT_LIST_FIELDS)
+    acc_by_id = {a.get("id"): a for a in accounts}
     contacts = []
-    for c in CTX.zoho.contacts.values():
+    for c in raw_contacts:
         acc = None
         acc_ref = c.get(f.C_ACCOUNT)
         if isinstance(acc_ref, dict):
-            acc = CTX.zoho.get_account(acc_ref.get("id", ""))
+            acc = acc_by_id.get(acc_ref.get("id"))
         contacts.append({**c, "_account": acc})
-    return {
-        "accounts": list(CTX.zoho.accounts.values()),
+    result = {
+        "mode": "ZOHO LIVE" if ZOHO_LIVE else "SANDBOX",
+        "accounts": accounts,
         "contacts": contacts,
         "smartlead": list(CTX.smartlead.leads.values()),
         "log": LOG[::-1],
@@ -376,11 +409,17 @@ def state():
                           "received": v["signal"]["signal_timestamp"]}
                       for k, v in SCENARIOS.items()},
     }
+    _STATE_CACHE = (now, result)
+    return result
+
+
+_STATE_CACHE = None
 
 
 if __name__ == "__main__":
     url = "http://localhost:8090"
-    print(f"\n  BookLender RevOps Console (sandbox) → {url}\n")
+    print(f"\n  BookLender RevOps Console → {url}")
+    print(f"  Zoho mode: {'LIVE (writes to your real CRM)' if ZOHO_LIVE else 'sandbox (in-memory)'}\n")
     try:
         webbrowser.open(url)
     except Exception:
