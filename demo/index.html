@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BookLender Prototype</title>
+<style>
+:root{
+  --bg:#0f1117;--panel:#171a23;--panel2:#1e2230;--line:#2a2f40;
+  --text:#e8eaf2;--dim:#9aa1b5;--accent:#6c8cff;--ok:#3ecf8e;--warn:#f5b544;
+  --bad:#ff6b6b;--human:#c792ea;--stop:#ff9f43;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 -apple-system,"Segoe UI",Roboto,sans-serif}
+header{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+header h1{font-size:17px;margin:0;font-weight:650}
+header .sub{color:var(--dim);font-size:12px}
+header button{margin-left:auto}
+.grid{display:grid;grid-template-columns:270px 1fr 380px;gap:14px;padding:14px 20px;align-items:start}
+@media(max-width:1100px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:14px}
+.card h2{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:0;padding:10px 14px;border-bottom:1px solid var(--line)}
+.card .body{padding:12px 14px}
+button{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:7px;padding:7px 12px;cursor:pointer;font:inherit;font-size:13px}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#0d1020;font-weight:650}
+button.good{background:var(--ok);border-color:var(--ok);color:#08221a;font-weight:650}
+button.danger{background:transparent;border-color:var(--bad);color:var(--bad)}
+button.warn{background:transparent;border-color:var(--warn);color:var(--warn)}
+button:disabled{opacity:.4;cursor:default}
+.sigbtn{display:flex;justify-content:space-between;width:100%;margin-bottom:8px}
+.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:650;letter-spacing:.03em}
+.b-PENDING_HUMAN_APPROVAL{background:#3a2f14;color:var(--warn)}
+.b-SENT_TO_SMARTLEAD,.b-ACTIVE_SEQUENCE{background:#12352a;color:var(--ok)}
+.b-REPLIED{background:#12352a;color:var(--ok)}
+.b-REJECTED,.b-DO_NOT_CONTACT,.b-BOUNCED,.b-UNSUBSCRIBED{background:#3a1820;color:var(--bad)}
+.b-NEEDS_REVIEW{background:#3a2f14;color:var(--warn)}
+.b-CONTACT_IDENTIFIED,.b-INTENT_DETECTED{background:#1b2440;color:var(--accent)}
+.contact{border:1px solid var(--line);border-radius:9px;padding:12px;margin-bottom:12px;background:var(--panel2)}
+.contact .name{font-weight:650;font-size:15px}
+.contact .meta{color:var(--dim);font-size:12px;margin:2px 0 8px}
+.section{margin:8px 0}
+.section .lbl{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.section .val{font-size:13px}
+.pitch{background:#12203a;border-left:3px solid var(--accent);padding:8px 10px;border-radius:0 6px 6px 0;font-style:italic}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.gatebar{display:flex;align-items:center;gap:10px;background:#241a10;border:1px dashed var(--stop);border-radius:9px;padding:10px 14px;margin-bottom:14px;font-weight:650;color:var(--stop)}
+.lead{border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-bottom:10px;background:var(--panel2)}
+.lead .em{font-weight:650}
+.lead .cmp{color:var(--dim);font-size:12px}
+.feed{max-height:420px;overflow:auto;font-size:12.5px}
+.feed div{padding:6px 14px;border-bottom:1px solid var(--line)}
+.feed .t{color:var(--dim);margin-right:8px;font-variant-numeric:tabular-nums}
+.k-ok{color:var(--ok)}.k-skip{color:var(--dim)}.k-human{color:var(--human)}
+.k-stop{color:var(--stop)}.k-block{color:var(--bad);font-weight:650}
+.k-send{color:var(--ok);font-weight:650}.k-attack{color:var(--warn)}.k-warn{color:var(--warn)}.k-info{color:var(--dim)}
+.empty{color:var(--dim);font-size:13px;padding:6px 0}
+.acct{padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+.acct:last-child{border:none}
+.acct .d{color:var(--dim);font-size:12px}
+.count{background:var(--panel2);border-radius:20px;padding:1px 8px;font-size:11px;color:var(--dim);margin-left:6px}
+</style>
+</head>
+<body>
+<header>
+  <h1>📚 BookLender — Sales Automation Prototype</h1>
+  <span class="sub">live pipeline · fictional data · in-memory vendors · nothing is emailed</span>
+  <button onclick="post('/demo/reset')">↺ Reset demo</button>
+</header>
+
+<div class="grid">
+  <!-- LEFT: signals + accounts -->
+  <div>
+    <div class="card"><h2>1 · 6sense intent signals</h2><div class="body" id="signals"></div></div>
+    <div class="card"><h2>Zoho CRM · Accounts<span class="count" id="acount"></span></h2><div class="body" id="accounts"><div class="empty">none yet</div></div></div>
+  </div>
+
+  <!-- MIDDLE: the CRM / approval queue -->
+  <div>
+    <div class="gatebar">⛔ HUMAN APPROVAL GATE — nothing below ever reaches Smartlead without an explicit APPROVE, verified server-side</div>
+    <div class="card"><h2>2 · Zoho CRM · Prospects &amp; approval queue<span class="count" id="ccount"></span></h2>
+      <div class="body" id="contacts"><div class="empty">Fire an intent signal to begin →</div></div></div>
+  </div>
+
+  <!-- RIGHT: smartlead + feed -->
+  <div>
+    <div class="card"><h2>3 · Smartlead (sandbox)<span class="count" id="lcount"></span></h2><div class="body" id="leads"><div class="empty">no leads — and there can’t be any until a human approves</div></div></div>
+    <div class="card"><h2>Audit feed</h2><div class="feed" id="feed"></div></div>
+  </div>
+</div>
+
+<script>
+const F = {
+  first:'First_Name', last:'Last_Name', title:'Title', email:'Email',
+  status:'Approval_Status', pitch:'AI_Personalization', cta:'AI_CTA',
+  research:'AI_Research_Summary', wm:'AI_Work_Model', conf:'AI_Confidence',
+  slid:'Smartlead_Lead_ID', slcamp:'Smartlead_Campaign_ID',
+  approvedBy:'Approved_By', reason:'Rejection_Reason', out:'Outreach_Status'
+};
+async function post(u){ const r = await fetch(u,{method:'POST'}); refresh(); return r; }
+function esc(s){ return (s??'').toString().replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function contactCard(c){
+  const st = c[F.status]||'NEW', acc = c._account||{};
+  const pending = st==='PENDING_HUMAN_APPROVAL';
+  const canAttack = !['SENT_TO_SMARTLEAD','ACTIVE_SEQUENCE','REPLIED','BOUNCED','UNSUBSCRIBED','COMPLETED'].includes(st) && !c[F.slid];
+  const needsClay = st==='CONTACT_IDENTIFIED';
+  const sent = !!c[F.slid];
+  let html = `<div class="contact">
+    <span class="badge b-${st}">${st.replaceAll('_',' ')}</span>
+    <div class="name">${esc(c[F.first])} ${esc(c[F.last])}</div>
+    <div class="meta">${esc(c[F.title])} · ${esc(acc.Account_Name||'')} · ${esc(c[F.email])}</div>`;
+  if(acc.SixSense_Intent_Score) html += `<div class="section"><span class="lbl">Why this account</span><div class="val">6sense intent <b>${acc.SixSense_Intent_Score}</b> (${esc(acc.SixSense_Intent_Tier)}) — ${esc(acc.SixSense_Intent_Topics||'')}</div></div>`;
+  if(c[F.research]) html += `<div class="section"><span class="lbl">Company research (${esc(c[F.wm]||'?')} · conf ${c[F.conf]??'–'})</span><div class="val">${esc(c[F.research])}</div></div>`;
+  if(c[F.pitch]) html += `<div class="section"><span class="lbl">AI personalization</span><div class="val pitch">“${esc(c[F.pitch])}”<br><b>CTA:</b> ${esc(c[F.cta])}</div></div>`;
+  if(c[F.approvedBy]) html += `<div class="section"><span class="lbl">Approval</span><div class="val">by ${esc(c[F.approvedBy])}</div></div>`;
+  if(c[F.reason]) html += `<div class="section"><span class="lbl">Rejection reason</span><div class="val">${esc(c[F.reason])}</div></div>`;
+  html += `<div class="actions">`;
+  if(needsClay) html += `<button class="primary" onclick="post('/demo/clay/${c.id}')">▶ Clay finishes research + AI pitch</button>`;
+  if(pending){
+    html += `<button class="good" onclick="post('/demo/approve/${c.id}')">✓ APPROVE</button>
+             <button class="danger" onclick="post('/demo/reject/${c.id}')">✕ REJECT</button>
+             <button class="warn" onclick="post('/demo/dnc/${c.id}')">⊘ DO NOT CONTACT</button>`;
+  }
+  if(st==='SENT_TO_SMARTLEAD'||st==='ACTIVE_SEQUENCE'){
+    html += `<button onclick="post('/demo/approve/${c.id}')">↻ Re-deliver approval webhook (proves: still 1 lead)</button>
+             <button onclick="post('/demo/event/reply/${c.id}')">💬 Simulate reply</button>
+             <button onclick="post('/demo/event/unsub/${c.id}')">🚫 Simulate unsubscribe</button>`;
+  }
+  if(canAttack && !pending) html += `<button class="warn" onclick="post('/demo/attack/${c.id}')">⚡ Attack: forged “APPROVED” webhook</button>`;
+  if(pending) html += `<button class="warn" onclick="post('/demo/attack/${c.id}')">⚡ Attack: bypass the human</button>`;
+  html += `</div></div>`;
+  return html;
+}
+
+async function refresh(){
+  const s = await (await fetch('/demo/state')).json();
+  document.getElementById('signals').innerHTML = Object.entries(s.scenarios).map(([k,v])=>
+    `<button class="sigbtn" onclick="post('/demo/signal/${k}')"><span>${esc(v.name)}</span><span style="color:var(--dim)">intent ${v.score}</span></button>`).join('');
+  document.getElementById('acount').textContent = s.accounts.length||'';
+  document.getElementById('accounts').innerHTML = s.accounts.length ? s.accounts.map(a=>
+    `<div class="acct"><b>${esc(a.Account_Name)}</b> <span class="badge b-${a.Prospect_Status}">${esc(a.Prospect_Status||'')}</span><div class="d">${esc(a.Company_Domain)} · ${esc(a.Industry||'')} · ${a.Employees||'?'} employees · intent ${a.SixSense_Intent_Score}</div></div>`).join('') : '<div class="empty">none yet</div>';
+  document.getElementById('ccount').textContent = s.contacts.length||'';
+  document.getElementById('contacts').innerHTML = s.contacts.length ? s.contacts.map(contactCard).join('') : '<div class="empty">Fire an intent signal to begin →</div>';
+  document.getElementById('lcount').textContent = s.smartlead.length||'';
+  document.getElementById('leads').innerHTML = s.smartlead.length ? s.smartlead.map(l=>
+    `<div class="lead"><div class="em">${esc(l.first_name)} ${esc(l.last_name)} &lt;${esc(l.email)}&gt;</div>
+     <div class="cmp">campaign ${esc(l.campaign_id)} · lead #${esc(l.id)}</div>
+     <div class="cmp" style="margin-top:4px">merge vars: {{personalized_pitch}} ✓ {{cta}} ✓ {{job_title}} ✓</div></div>`).join('')
+    : '<div class="empty">no leads — and there can’t be any until a human approves</div>';
+  document.getElementById('feed').innerHTML = s.feed.map(e=>
+    `<div><span class="t">${e.t}</span><span class="k-${e.kind}">${esc(e.text)}</span></div>`).join('');
+}
+refresh(); setInterval(refresh, 1500);
+</script>
+</body>
+</html>
