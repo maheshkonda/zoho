@@ -102,10 +102,19 @@ def handle_intent_signal(ctx: Context, signal: dict[str, Any]) -> dict[str, Any]
     }
     account = {k: v for k, v in account.items() if v is not None}
 
+    def _upsert() -> str:
+        # Deterministic dedupe: never trust vendor-side duplicate checks on
+        # custom fields — search by normalized domain first.
+        existing = ctx.zoho.find_account_by_domain(domain)
+        if existing:
+            ctx.zoho.update_account(existing["id"], account)
+            return existing["id"]
+        return ctx.zoho.upsert_account(account)
+
     try:
         r = ctx.settings.retry
         account_id = with_retry(
-            lambda: ctx.zoho.upsert_account(account),
+            _upsert,
             max_attempts=r.max_attempts, base_delay=r.base_delay_seconds,
             max_delay=r.max_delay_seconds,
             on_retry=lambda n, e: ctx.audit.record(

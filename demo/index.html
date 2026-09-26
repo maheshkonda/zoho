@@ -261,11 +261,11 @@ async function refresh(){
     :'<div class="empty">Queue is empty.</div>';
 
   const others=cs.filter(c=>c[F.status]!=='PENDING_HUMAN_APPROVAL');
-  document.getElementById('concnt').textContent=cs.length?`(${cs.length})`:'';
+  document.getElementById('concnt').textContent=others.length?`(${others.length})`:'';
   document.getElementById('prospects').innerHTML=others.length?
     `<table><tr><th>Contact</th><th>Account</th><th>Status</th><th>Actions</th></tr>`+
     others.map(prospectRow).join('')+`</table>`
-    :'<div class="empty">No prospects yet.</div>';
+    :'<div class="empty">None outside the approval queue.</div>';
 
   document.getElementById('leadcnt').textContent=s.smartlead.length?`(${s.smartlead.length})`:'';
   document.getElementById('leads').innerHTML=s.smartlead.length?
