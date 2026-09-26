@@ -51,7 +51,7 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
-    spec = json.loads(FIELDS_FILE.read_text())
+    spec = json.loads(FIELDS_FILE.read_text(encoding="utf-8"))
     client = ZohoHTTPClient()
     rc = 0
     for module, fields in spec.items():

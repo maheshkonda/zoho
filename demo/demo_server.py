@@ -181,7 +181,7 @@ def note(kind: str, text: str):
 
 @app.get("/", response_class=HTMLResponse)
 def index():
-    return (Path(__file__).parent / "index.html").read_text()
+    return (Path(__file__).parent / "index.html").read_text(encoding="utf-8")
 
 
 @app.post("/demo/reset")

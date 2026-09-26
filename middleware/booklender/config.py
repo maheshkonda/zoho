@@ -88,7 +88,7 @@ class Settings:
 
 
 def load_settings(path: str | Path) -> Settings:
-    raw = yaml.safe_load(Path(path).read_text())
+    raw = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
     if not isinstance(raw, dict):
         raise ConfigError(f"Invalid config file: {path}")
     try:
