@@ -45,6 +45,13 @@ class ZohoHTTPClient:
         if resp.status_code != 200:
             raise PermanentError(f"Zoho token refresh failed: {resp.status_code}")
         data = resp.json()
+        # Zoho returns HTTP 200 with {"error": "..."} for bad credentials
+        if "access_token" not in data:
+            raise PermanentError(
+                f"Zoho token refresh rejected: {data.get('error', data)} — "
+                "check ZOHO_REFRESH_TOKEN (must be the refresh token from the "
+                "code exchange, NOT the grant code) and the data-center URLs"
+            )
         self._token = data["access_token"]
         self._token_expiry = time.time() + int(data.get("expires_in", 3600))
         return self._token
