@@ -1,24 +1,21 @@
 #!/usr/bin/env python3
-"""BookLender prototype demo — runs the REAL pipeline code locally against
-in-memory fake vendors (no credentials, no network, no real data, nothing
-is ever emailed).
+"""BookLender RevOps Console — local sandbox deployment.
 
-Everything the dashboard shows is produced by the same production modules
-that would talk to the live systems: qualification, discovery, enrichment
-sync, the approval state machine, and — crucially — the server-side
-approval gate in booklender/pipeline/dispatch.py.
+Runs the production pipeline modules (qualification, discovery, enrichment
+sync, approval gate, engagement) against the in-process sandbox vendor
+adapters. Seed data is fictional; no external calls are made and no email
+can be sent from this deployment.
 
 Run:
     pip install -r requirements.txt
     python demo/demo_server.py          # http://localhost:8090
-
-Demo talk track: demo/README.md
 """
 from __future__ import annotations
 
 import sys
+import threading
 import webbrowser
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -39,102 +36,130 @@ from booklender.pipeline import apollo_discovery, clay_sync, dispatch, engagemen
 from booklender.pipeline.context import Context
 from booklender.state_machine import Status
 
+ENRICH_DELAY_SECONDS = 2.5  # simulated Clay table turnaround
+
 # --------------------------------------------------------------------------
-# Fictional demo dataset (no real companies or people)
+# Seed dataset (fictional companies and people)
 # --------------------------------------------------------------------------
+def _ts(days_ago: int) -> str:
+    return (datetime.now(timezone.utc) - timedelta(days=days_ago)).date().isoformat()
+
+
 SCENARIOS = {
-    "acme": {
+    "crestline": {
         "signal": {
-            "sixsense_account_id": "6s-0001", "company_name": "Acme Robotics",
-            "domain": "acme-robotics.example", "website": "https://acme-robotics.example",
-            "industry": "Software", "employee_count": 850, "country": "United States",
+            "sixsense_account_id": "6s-84213", "company_name": "Crestline Software",
+            "domain": "crestlinesoftware.com", "website": "https://crestlinesoftware.com",
+            "industry": "Software", "employee_count": 840, "country": "United States",
             "intent_score": 88, "intent_tier": "HIGH",
             "intent_topics": ["Employee Benefits", "Workplace Culture"],
-            "signal_timestamp": "2026-09-24",
+            "signal_timestamp": _ts(0),
         },
         "person": {
-            "id": "ap-1001", "first_name": "Jane", "last_name": "Smith",
-            "title": "VP People", "email": "jane.smith@acme-robotics.example",
-            "linkedin_url": "https://linkedin.example/janesmith", "seniority": "vp",
+            "id": "ap-559102", "first_name": "Jane", "last_name": "Whitfield",
+            "title": "VP People", "email": "jane.whitfield@crestlinesoftware.com",
+            "linkedin_url": "https://www.linkedin.com/in/jwhitfield-people", "seniority": "vp",
         },
         "clay": {
             "work_model": "Hybrid", "confidence": 0.86,
-            "research_summary": "Acme Robotics runs a hybrid workforce across 12 US offices; careers page highlights a 'learning stipend' and quarterly culture weeks.",
-            "personalized_pitch": "Saw Acme's careers page leads with the learning stipend and hybrid culture weeks — BookLender puts a rotating, curated library on every employee's desk (or doorstep) without HR managing inventory.",
-            "cta": "Open to a 15-minute look at how hybrid People teams run it?",
+            "research_summary": "Careers page lists 3-day hybrid schedule across Denver, Austin and Raleigh offices; benefits section highlights a $1,200/yr learning stipend and quarterly team offsites.",
+            "personalized_pitch": "Crestline's careers page leads with the learning stipend and hybrid schedule — BookLender runs a rotating curated library for exactly that setup: titles matched to each team, shipped to office or home, zero inventory work for People Ops.",
+            "cta": "Open to a 15-minute walkthrough of the hybrid rollout?",
         },
     },
-    "northwind": {
+    "meridian": {
         "signal": {
-            "sixsense_account_id": "6s-0002", "company_name": "Northwind Health",
-            "domain": "northwind-health.example", "website": "https://northwind-health.example",
+            "sixsense_account_id": "6s-77045", "company_name": "Meridian Health Partners",
+            "domain": "meridianhealthpartners.com", "website": "https://meridianhealthpartners.com",
             "industry": "Healthcare", "employee_count": 2400, "country": "United States",
             "intent_score": 92, "intent_tier": "VERY_HIGH",
             "intent_topics": ["Employee Wellness", "Employee Benefits"],
-            "signal_timestamp": "2026-09-25",
+            "signal_timestamp": _ts(0),
         },
         "person": {
-            "id": "ap-1002", "first_name": "Ravi", "last_name": "Patel",
-            "title": "Chief People Officer", "email": "ravi.patel@northwind-health.example",
-            "linkedin_url": "https://linkedin.example/ravipatel", "seniority": "c_suite",
+            "id": "ap-612384", "first_name": "Ravi", "last_name": "Patel",
+            "title": "Chief People Officer", "email": "ravi.patel@meridianhealthpartners.com",
+            "linkedin_url": "https://www.linkedin.com/in/ravipatel-cpo", "seniority": "c_suite",
         },
         "clay": {
             "work_model": "Remote", "confidence": 0.91,
-            "research_summary": "Northwind Health is remote-first (2,400 employees, 38 states) and publicly promotes a wellness-benefits budget per employee.",
-            "personalized_pitch": "Northwind's remote-first wellness budget caught my eye — BookLender is the benefit remote teams actually use: curated books shipped home, swapped monthly, zero admin for your team.",
-            "cta": "Worth 15 minutes to see the remote rollout playbook?",
+            "research_summary": "Remote-first since 2022 (2,400 employees, 38 states). Public benefits page includes a $500 annual wellness budget per employee and a company-wide reading program mentioned in two press releases.",
+            "personalized_pitch": "Meridian already funds a wellness budget and runs a reading program — BookLender consolidates both: curated titles shipped to each employee's home, swapped monthly, with utilization reporting your team doesn't have today.",
+            "cta": "Worth 15 minutes to compare against the current program's numbers?",
         },
     },
-    "initech": {
+    "hartley": {
         "signal": {
-            "sixsense_account_id": "6s-0003", "company_name": "Initech Software",
-            "domain": "initech.example", "website": "https://initech.example",
-            "industry": "Software", "employee_count": 400, "country": "United States",
+            "sixsense_account_id": "6s-90311", "company_name": "Hartley & Voss LLP",
+            "domain": "hartleyvoss.com", "website": "https://hartleyvoss.com",
+            "industry": "Legal Services", "employee_count": 410, "country": "United States",
             "intent_score": 75, "intent_tier": "HIGH",
             "intent_topics": ["Workplace Culture"],
-            "signal_timestamp": "2026-09-25",
+            "signal_timestamp": _ts(1),
         },
         "person": {
-            "id": "ap-1003", "first_name": "Maria", "last_name": "Gonzalez",
-            "title": "HR Director", "email": "maria.gonzalez@initech.example",
-            "linkedin_url": "https://linkedin.example/mgonzalez", "seniority": "director",
+            "id": "ap-433870", "first_name": "Maria", "last_name": "Gonzalez",
+            "title": "HR Director", "email": "maria.gonzalez@hartleyvoss.com",
+            "linkedin_url": "https://www.linkedin.com/in/mgonzalez-hr", "seniority": "director",
         },
         "clay": {
             "work_model": "On-site", "confidence": 0.74,
-            "research_summary": "Initech operates a single Austin campus; blog posts feature an office library corner and monthly book-club photos.",
-            "personalized_pitch": "Initech's book-club posts made this an easy note — BookLender keeps that shelf fresh automatically: curated titles rotated monthly, matched to what your teams actually read.",
-            "cta": "Can I send the 2-pager your book club would want to see?",
+            "research_summary": "Single Chicago office; firm newsletter (public) features a staffed library corner and a monthly associates' book club running since 2023.",
+            "personalized_pitch": "Hartley & Voss's book club has been running since 2023 per your newsletter — BookLender keeps that shelf current automatically: monthly curated rotation matched to what associates actually check out.",
+            "cta": "Can I send the one-pager your book club lead would want to see?",
         },
     },
-    "lowsignal": {
+    "bluefin": {
         "signal": {
-            "sixsense_account_id": "6s-0004", "company_name": "LowSignal Corp",
-            "domain": "lowsignal.example", "industry": "Software",
-            "employee_count": 300, "country": "United States",
-            "intent_score": 22, "intent_tier": "LOW",
-            "intent_topics": ["Cloud Storage"], "signal_timestamp": "2026-09-25",
-        },
-        "person": None,  # never reached: disqualified by config rules
-        "clay": None,
-    },
-    "globex": {
-        "signal": {
-            "sixsense_account_id": "6s-0005", "company_name": "Globex Industrial",
-            "domain": "globex-industrial.example", "industry": "Manufacturing",
-            "employee_count": 5200, "country": "United States",
+            "sixsense_account_id": "6s-28857", "company_name": "Bluefin Logistics Group",
+            "domain": "bluefinlogisticsgroup.com", "website": "https://bluefinlogisticsgroup.com",
+            "industry": "Logistics", "employee_count": 5200, "country": "United States",
             "intent_score": 81, "intent_tier": "HIGH",
-            "intent_topics": ["Employee Benefits"], "signal_timestamp": "2026-09-25",
+            "intent_topics": ["Employee Benefits"],
+            "signal_timestamp": _ts(1),
         },
         "person": {
-            "id": "ap-1005", "first_name": "Dana", "last_name": "Okafor",
-            "title": "Total Rewards Lead", "email": "dana.okafor@globex-industrial.example",
-            "linkedin_url": "https://linkedin.example/dokafor", "seniority": "head",
+            "id": "ap-518226", "first_name": "Dana", "last_name": "Okafor",
+            "title": "Total Rewards Lead", "email": "dana.okafor@bluefinlogisticsgroup.com",
+            "linkedin_url": "https://www.linkedin.com/in/dokafor-rewards", "seniority": "head",
         },
-        # Insufficient evidence -> UNKNOWN + empty pitch => NEEDS_REVIEW path
+        # Insufficient public evidence -> UNKNOWN + empty pitch => NEEDS_REVIEW
         "clay": {
             "work_model": "Unknown", "confidence": 0.2,
             "research_summary": "", "personalized_pitch": "", "cta": "",
         },
+    },
+    "arcadia": {
+        "signal": {
+            "sixsense_account_id": "6s-66120", "company_name": "Arcadia Learning",
+            "domain": "arcadialearning.com", "website": "https://arcadialearning.com",
+            "industry": "Education", "employee_count": 620, "country": "United States",
+            "intent_score": 84, "intent_tier": "HIGH",
+            "intent_topics": ["Learning and Development", "Employee Benefits"],
+            "signal_timestamp": _ts(2),
+        },
+        "person": {
+            "id": "ap-701558", "first_name": "Tom", "last_name": "Becker",
+            "title": "Head of People & Culture", "email": "tom.becker@arcadialearning.com",
+            "linkedin_url": "https://www.linkedin.com/in/tbecker-people", "seniority": "head",
+        },
+        "clay": {
+            "work_model": "Hybrid", "confidence": 0.79,
+            "research_summary": "Hybrid (2 days/week) per careers FAQ; L&D page commits to '52 books a year' as a company value and reimburses individual book purchases.",
+            "personalized_pitch": "Arcadia literally puts '52 books a year' on its L&D page — BookLender turns the reimbursement process into a managed program: curated delivery, shared team shelves, and a single invoice instead of expense reports.",
+            "cta": "15 minutes to see what replacing reimbursements looks like?",
+        },
+    },
+    "nimbus": {
+        "signal": {
+            "sixsense_account_id": "6s-15408", "company_name": "Nimbus Data Systems",
+            "domain": "nimbusdatasystems.com", "industry": "Software",
+            "employee_count": 310, "country": "United States",
+            "intent_score": 22, "intent_tier": "LOW",
+            "intent_topics": ["Cloud Storage"], "signal_timestamp": _ts(0),
+        },
+        "person": None,  # never reached: signal fails qualification
+        "clay": None,
     },
 }
 
@@ -145,19 +170,20 @@ def build_ctx() -> Context:
                       included_countries=["United States"]),
         intent=IntentConfig(min_score=70, accepted_tiers=["HIGH", "VERY_HIGH"],
                             relevant_topics=["Employee Benefits", "Workplace Culture",
-                                             "Employee Wellness"]),
+                                             "Employee Wellness", "Learning and Development"]),
         contacts=ContactConfig(target_titles=["VP People", "CHRO", "HR Director",
-                                              "Chief People Officer", "Total Rewards"],
+                                              "Chief People Officer", "Total Rewards",
+                                              "People & Culture"],
                                target_seniorities=["c_suite", "vp", "director", "head"],
                                max_contacts_per_account=3),
         campaigns=[
-            CampaignRule(campaign_id="SL-DEMO-REMOTE", name="BookLender HR Outreach — Remote/Hybrid",
+            CampaignRule(campaign_id="SL-1180", name="HR Outreach — Remote/Hybrid",
                          when_work_model=["REMOTE", "HYBRID"]),
-            CampaignRule(campaign_id="SL-DEMO-GENERAL", name="BookLender HR Outreach — General",
+            CampaignRule(campaign_id="SL-1181", name="HR Outreach — General",
                          when_work_model=[]),
         ],
         retry=RetryConfig(max_attempts=3, base_delay_seconds=0.0, max_delay_seconds=0.0),
-        test_mode=False,  # fake Smartlead only — nothing real can be sent
+        test_mode=False,  # sandbox Smartlead adapter only — no external delivery path
     )
     ctx = Context(settings=settings, zoho=FakeZoho(), apollo=FakeApollo(),
                   clay=FakeClay(), smartlead=FakeSmartlead(),
@@ -168,15 +194,17 @@ def build_ctx() -> Context:
     return ctx
 
 
-app = FastAPI(title="BookLender Prototype Demo")
+app = FastAPI(title="BookLender RevOps Console")
 CTX = build_ctx()
-FEED: list[dict] = []  # narrative event feed for the dashboard
+LOG: list[dict] = []
+_LOCK = threading.Lock()
 
 
-def note(kind: str, text: str):
-    FEED.append({"t": datetime.now(timezone.utc).strftime("%H:%M:%S"),
-                 "kind": kind, "text": text})
-    del FEED[:-60]
+def log(level: str, msg: str):
+    with _LOCK:
+        LOG.append({"t": datetime.now(timezone.utc).strftime("%H:%M:%S"),
+                    "level": level, "msg": msg})
+        del LOG[:-80]
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -188,9 +216,31 @@ def index():
 def reset():
     global CTX
     CTX = build_ctx()
-    FEED.clear()
-    note("info", "Demo reset — clean slate.")
+    with _LOCK:
+        LOG.clear()
+    log("INFO", "sandbox reset · pipeline state cleared")
     return {"ok": True}
+
+
+def _run_enrichment(contact_id: str):
+    """Background enrichment completion (simulated Clay table turnaround)."""
+    contact = CTX.zoho.get_contact(contact_id)
+    if not contact:
+        return
+    sc = next((s for s in SCENARIOS.values()
+               if s["person"] and s["person"]["email"] == contact.get(f.C_EMAIL)), None)
+    if not sc or not sc["clay"]:
+        return
+    res = clay_sync.handle_clay_result(
+        CTX, {"zoho_contact_id": contact_id,
+              "clay_record_id": f"clay-{contact_id}", **sc["clay"]})
+    if res.get("duplicate"):
+        log("INFO", f"clay result redelivered contact={contact_id} · idempotent, no-op")
+    elif res["status"] == Status.PENDING_HUMAN_APPROVAL.value:
+        log("INFO", f"enrichment complete contact={contact_id} model={sc['clay']['work_model'].upper()} conf={sc['clay']['confidence']}")
+        log("INFO", f"status → PENDING_HUMAN_APPROVAL contact={contact_id} · awaiting operator review")
+    else:
+        log("WARN", f"enrichment incomplete contact={contact_id} · insufficient evidence, status → NEEDS_REVIEW")
 
 
 @app.post("/demo/signal/{key}")
@@ -198,50 +248,40 @@ def fire_signal(key: str):
     sc = SCENARIOS.get(key)
     if not sc:
         raise HTTPException(404, "unknown scenario")
-    res = sixsense.handle_intent_signal(CTX, sc["signal"])
     name = sc["signal"]["company_name"]
+    res = sixsense.handle_intent_signal(CTX, sc["signal"])
     if not res.get("qualified"):
-        note("skip", f"6sense signal: {name} — DISQUALIFIED by config rules ({res['reason']}). Nothing created.")
+        log("WARN", f"6sense signal dropped acct={sc['signal']['domain']} · {res['reason']}")
         return res
     if res.get("duplicate"):
-        note("skip", f"6sense signal: {name} — duplicate signal, idempotent skip.")
+        log("INFO", f"6sense signal duplicate acct={sc['signal']['domain']} · idempotent, no-op")
         return res
-    note("ok", f"6sense signal: {name} qualified → Zoho Account created (intent {sc['signal']['intent_score']}).")
+    log("INFO", f"6sense signal qualified acct={sc['signal']['domain']} score={sc['signal']['intent_score']} → account upserted")
     ids = apollo_discovery.discover_contacts(CTX, account_id=res["account_id"],
                                              domain=res["domain"])
     if ids:
         c = CTX.zoho.get_contact(ids[0])
-        note("ok", f"Apollo found {c[f.C_FIRST]} {c[f.C_LAST]} ({c[f.C_TITLE]}) → Zoho Contact → queued to Clay.")
+        log("INFO", f"apollo matched {len(ids)} contact(s) · {c[f.C_FIRST]} {c[f.C_LAST]} ({c[f.C_TITLE]}) → CRM + enrichment queue")
+        for cid in ids:
+            threading.Timer(ENRICH_DELAY_SECONDS, _run_enrichment, args=[cid]).start()
     res["contact_ids"] = ids
     return res
 
 
 @app.post("/demo/clay/{contact_id}")
-def clay_completes(contact_id: str):
-    contact = CTX.zoho.get_contact(contact_id)
-    if not contact:
+def rerun_enrichment(contact_id: str):
+    """Manual re-run (used from the console for NEEDS_REVIEW records)."""
+    if not CTX.zoho.get_contact(contact_id):
         raise HTTPException(404, "no such contact")
-    sc = next((s for s in SCENARIOS.values()
-               if s["person"] and s["person"]["email"] == contact.get(f.C_EMAIL)), None)
-    if not sc or not sc["clay"]:
-        raise HTTPException(400, "no Clay scenario for this contact")
-    res = clay_sync.handle_clay_result(
-        CTX, {"zoho_contact_id": contact_id,
-              "clay_record_id": f"clay-{contact_id}", **sc["clay"]})
-    if res.get("duplicate"):
-        note("skip", "Clay completion re-delivered — idempotent skip, nothing changed.")
-    elif res["status"] == Status.PENDING_HUMAN_APPROVAL.value:
-        note("stop", f"Clay research + AI pitch written to Zoho. STATUS = PENDING_HUMAN_APPROVAL. ⛔ Machine STOPPED — waiting for a human.")
-    else:
-        note("warn", f"Clay returned insufficient evidence → NEEDS_REVIEW (no fabrication, approval blocked).")
-    return res
+    _run_enrichment(contact_id)
+    return {"ok": True}
 
 
 @app.post("/demo/approve/{contact_id}")
-def human_approve(contact_id: str, approver: str = "operator@booklender.demo"):
-    """Simulates the human clicking APPROVE in the Zoho Blueprint: Zoho
-    stamps who/when, then the signed webhook hands ONLY the id to dispatch,
-    which re-validates everything against the record."""
+def approve(contact_id: str, approver: str = "m.konda@booklender.com"):
+    """Operator APPROVE (in production this is the Zoho Blueprint transition:
+    Zoho stamps approver + timestamp, then the signed webhook hands only the
+    record id to the dispatcher, which re-validates against the CRM)."""
     contact = CTX.zoho.get_contact(contact_id)
     if not contact:
         raise HTTPException(404, "no such contact")
@@ -251,53 +291,52 @@ def human_approve(contact_id: str, approver: str = "operator@booklender.demo"):
             f.C_APPROVAL_TS: datetime.now(timezone.utc).isoformat(),
             f.C_APPROVED_BY: approver,
         })
-        note("human", f"HUMAN clicked APPROVE in Zoho ({approver}).")
+        log("INFO", f"approval recorded contact={contact_id} by={approver}")
     try:
         res = dispatch.dispatch_approved_contact(CTX, zoho_contact_id=contact_id)
     except dispatch.ApprovalGateError as e:
-        note("block", f"APPROVAL GATE REFUSED: {e}")
+        log("ERROR", f"dispatch blocked contact={contact_id} · {e}")
         raise HTTPException(403, str(e))
     if res.get("duplicate"):
-        note("skip", f"Duplicate approval delivery — gate returned the SAME lead (id {res['smartlead_lead_id']}). No duplicate email.")
+        log("INFO", f"dispatch replay contact={contact_id} · existing lead {res['smartlead_lead_id']} returned, no duplicate created")
     else:
-        note("send", f"Gate re-validated the Zoho record → EXACTLY ONE lead sent to Smartlead campaign {res['campaign_id']}.")
+        log("INFO", f"lead created id={res['smartlead_lead_id']} campaign={res['campaign_id']} contact={contact_id}")
     return res
 
 
 @app.post("/demo/reject/{contact_id}")
-def human_reject(contact_id: str, reason: str = "Not a fit right now"):
+def reject(contact_id: str, reason: str = "Not a fit at this time"):
     if not CTX.zoho.get_contact(contact_id):
         raise HTTPException(404, "no such contact")
     CTX.zoho.update_contact(contact_id, {
         f.C_APPROVAL_STATUS: Status.REJECTED.value,
         f.C_REJECTION_REASON: reason, f.C_OUTREACH_STATUS: "NONE"})
-    note("human", f"HUMAN clicked REJECT ({reason}). Outreach permanently blocked for this prospect.")
+    log("INFO", f"prospect rejected contact={contact_id} reason=\"{reason}\"")
     return {"ok": True}
 
 
 @app.post("/demo/dnc/{contact_id}")
-def human_dnc(contact_id: str):
+def do_not_contact(contact_id: str):
     if not CTX.zoho.get_contact(contact_id):
         raise HTTPException(404, "no such contact")
     CTX.zoho.update_contact(contact_id, {
         f.C_APPROVAL_STATUS: Status.DO_NOT_CONTACT.value,
         f.C_OPTED_OUT: True, f.C_OUTREACH_STATUS: "NONE"})
-    note("human", "HUMAN clicked DO NOT CONTACT — terminal state, opt-out flag set.")
+    log("WARN", f"do-not-contact set contact={contact_id} · opt-out flag written, terminal state")
     return {"ok": True}
 
 
 @app.post("/demo/attack/{contact_id}")
-def attack_gate(contact_id: str):
-    """The demo's proof moment: a forged 'APPROVED' webhook straight at the
-    dispatcher, without any human approval in Zoho. The gate re-reads the
-    record and refuses."""
-    note("attack", "⚠ Simulating a forged/premature webhook claiming the contact is APPROVED…")
+def gate_selftest(contact_id: str):
+    """Gate self-test: replays a dispatch webhook for a record that has no
+    valid approval on file. Expected result: refusal."""
+    log("WARN", f"gate self-test · replaying dispatch webhook contact={contact_id} without valid approval")
     try:
         dispatch.dispatch_approved_contact(CTX, zoho_contact_id=contact_id)
     except dispatch.ApprovalGateError as e:
-        note("block", f"GATE HELD: {e}")
+        log("ERROR", f"dispatch blocked contact={contact_id} · {e}")
         return {"blocked": True, "reason": str(e)}
-    note("send", "Gate allowed it — record was genuinely approved (idempotency still guarantees one lead).")
+    log("INFO", f"dispatch permitted contact={contact_id} · record holds a valid approval (idempotency still enforces single lead)")
     return {"blocked": False}
 
 
@@ -311,8 +350,8 @@ def engagement_event(etype: str, contact_id: str):
         raise HTTPException(400, "reply|bounce|unsub")
     res = engagement.handle_smartlead_event(CTX, {
         "event_type": mapping[etype], "lead_email": contact.get(f.C_EMAIL),
-        "event_id": f"demo-{etype}-{contact_id}-{len(FEED)}"})
-    note("ok", f"Smartlead event {mapping[etype]} → synced back to Zoho.")
+        "event_id": f"evt-{etype}-{contact_id}-{len(LOG)}"})
+    log("INFO", f"smartlead webhook {mapping[etype]} contact={contact_id} → CRM updated")
     return res
 
 
@@ -329,16 +368,19 @@ def state():
         "accounts": list(CTX.zoho.accounts.values()),
         "contacts": contacts,
         "smartlead": list(CTX.smartlead.leads.values()),
-        "feed": FEED[::-1],
+        "log": LOG[::-1],
         "scenarios": {k: {"name": v["signal"]["company_name"],
-                          "score": v["signal"]["intent_score"]}
+                          "score": v["signal"]["intent_score"],
+                          "tier": v["signal"]["intent_tier"],
+                          "topics": ", ".join(v["signal"]["intent_topics"]),
+                          "received": v["signal"]["signal_timestamp"]}
                       for k, v in SCENARIOS.items()},
     }
 
 
 if __name__ == "__main__":
     url = "http://localhost:8090"
-    print(f"\n  BookLender prototype demo → {url}\n  (all vendors are in-memory fakes; nothing leaves this machine)\n")
+    print(f"\n  BookLender RevOps Console (sandbox) → {url}\n")
     try:
         webbrowser.open(url)
     except Exception:

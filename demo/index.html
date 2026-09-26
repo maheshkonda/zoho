@@ -3,155 +3,270 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BookLender Prototype</title>
+<title>BookLender RevOps</title>
 <style>
 :root{
-  --bg:#0f1117;--panel:#171a23;--panel2:#1e2230;--line:#2a2f40;
-  --text:#e8eaf2;--dim:#9aa1b5;--accent:#6c8cff;--ok:#3ecf8e;--warn:#f5b544;
-  --bad:#ff6b6b;--human:#c792ea;--stop:#ff9f43;
+  --bg:#f5f6f8;--panel:#ffffff;--border:#d8dce3;--border2:#e7eaef;
+  --text:#1f2328;--dim:#606a76;--link:#0b57d0;--head:#f0f2f5;
+  --green:#116329;--green-bg:#e6f4ea;--amber:#8a5a00;--amber-bg:#fdf3d7;
+  --red:#b3261e;--red-bg:#fbeae9;--blue:#0b57d0;--blue-bg:#e8f0fe;
+  --gray:#57606a;--gray-bg:#eef0f3;
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 -apple-system,"Segoe UI",Roboto,sans-serif}
-header{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
-header h1{font-size:17px;margin:0;font-weight:650}
-header .sub{color:var(--dim);font-size:12px}
-header button{margin-left:auto}
-.grid{display:grid;grid-template-columns:270px 1fr 380px;gap:14px;padding:14px 20px;align-items:start}
-@media(max-width:1100px){.grid{grid-template-columns:1fr}}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:14px}
-.card h2{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:0;padding:10px 14px;border-bottom:1px solid var(--line)}
-.card .body{padding:12px 14px}
-button{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:7px;padding:7px 12px;cursor:pointer;font:inherit;font-size:13px}
-button:hover{border-color:var(--accent)}
-button.primary{background:var(--accent);border-color:var(--accent);color:#0d1020;font-weight:650}
-button.good{background:var(--ok);border-color:var(--ok);color:#08221a;font-weight:650}
-button.danger{background:transparent;border-color:var(--bad);color:var(--bad)}
-button.warn{background:transparent;border-color:var(--warn);color:var(--warn)}
-button:disabled{opacity:.4;cursor:default}
-.sigbtn{display:flex;justify-content:space-between;width:100%;margin-bottom:8px}
-.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:650;letter-spacing:.03em}
-.b-PENDING_HUMAN_APPROVAL{background:#3a2f14;color:var(--warn)}
-.b-SENT_TO_SMARTLEAD,.b-ACTIVE_SEQUENCE{background:#12352a;color:var(--ok)}
-.b-REPLIED{background:#12352a;color:var(--ok)}
-.b-REJECTED,.b-DO_NOT_CONTACT,.b-BOUNCED,.b-UNSUBSCRIBED{background:#3a1820;color:var(--bad)}
-.b-NEEDS_REVIEW{background:#3a2f14;color:var(--warn)}
-.b-CONTACT_IDENTIFIED,.b-INTENT_DETECTED{background:#1b2440;color:var(--accent)}
-.contact{border:1px solid var(--line);border-radius:9px;padding:12px;margin-bottom:12px;background:var(--panel2)}
-.contact .name{font-weight:650;font-size:15px}
-.contact .meta{color:var(--dim);font-size:12px;margin:2px 0 8px}
-.section{margin:8px 0}
-.section .lbl{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
-.section .val{font-size:13px}
-.pitch{background:#12203a;border-left:3px solid var(--accent);padding:8px 10px;border-radius:0 6px 6px 0;font-style:italic}
-.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-.gatebar{display:flex;align-items:center;gap:10px;background:#241a10;border:1px dashed var(--stop);border-radius:9px;padding:10px 14px;margin-bottom:14px;font-weight:650;color:var(--stop)}
-.lead{border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-bottom:10px;background:var(--panel2)}
-.lead .em{font-weight:650}
-.lead .cmp{color:var(--dim);font-size:12px}
-.feed{max-height:420px;overflow:auto;font-size:12.5px}
-.feed div{padding:6px 14px;border-bottom:1px solid var(--line)}
-.feed .t{color:var(--dim);margin-right:8px;font-variant-numeric:tabular-nums}
-.k-ok{color:var(--ok)}.k-skip{color:var(--dim)}.k-human{color:var(--human)}
-.k-stop{color:var(--stop)}.k-block{color:var(--bad);font-weight:650}
-.k-send{color:var(--ok);font-weight:650}.k-attack{color:var(--warn)}.k-warn{color:var(--warn)}.k-info{color:var(--dim)}
-.empty{color:var(--dim);font-size:13px;padding:6px 0}
-.acct{padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
-.acct:last-child{border:none}
-.acct .d{color:var(--dim);font-size:12px}
-.count{background:var(--panel2);border-radius:20px;padding:1px 8px;font-size:11px;color:var(--dim);margin-left:6px}
+html,body{margin:0;background:var(--bg);color:var(--text);
+  font:13px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+a{color:var(--link);text-decoration:none;cursor:pointer}
+a:hover{text-decoration:underline}
+
+/* top bar */
+.topbar{background:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;
+  gap:18px;padding:0 20px;height:46px}
+.brand{font-weight:600;font-size:14px}
+.brand span{color:var(--dim);font-weight:400}
+.envtag{font-size:10.5px;font-weight:600;letter-spacing:.04em;color:var(--amber);
+  background:var(--amber-bg);border:1px solid #ecd9a0;border-radius:3px;padding:1px 7px}
+.topbar .right{margin-left:auto;display:flex;align-items:center;gap:14px;color:var(--dim);font-size:12px}
+.userchip{background:var(--gray-bg);border-radius:3px;padding:2px 8px;color:var(--text)}
+
+/* kpis */
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:1px;background:var(--border);
+  border:1px solid var(--border);margin:14px 20px 0;border-radius:4px;overflow:hidden}
+.kpi{background:var(--panel);padding:10px 14px}
+.kpi .n{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.kpi .l{font-size:11px;color:var(--dim);margin-top:1px}
+@media(max-width:900px){.kpis{grid-template-columns:repeat(3,1fr)}}
+
+/* layout */
+.layout{display:grid;grid-template-columns:340px 1fr 360px;gap:14px;padding:14px 20px;align-items:start}
+@media(max-width:1200px){.layout{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;margin-bottom:14px;overflow:hidden}
+.panel>.hd{display:flex;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border);
+  background:var(--head);font-size:12px;font-weight:600}
+.panel>.hd .cnt{color:var(--dim);font-weight:400;margin-left:6px}
+.panel>.hd .hact{margin-left:auto;font-weight:400;font-size:12px}
+
+/* tables */
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{font-size:11px;color:var(--dim);text-align:left;font-weight:600;padding:6px 12px;
+  border-bottom:1px solid var(--border2);background:#fafbfc}
+td{padding:7px 12px;border-bottom:1px solid var(--border2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+.num{font-variant-numeric:tabular-nums;text-align:right}
+.sub{color:var(--dim);font-size:11.5px}
+.mono{font-family:ui-monospace,SFMono-Regular,Consolas,Menlo,monospace;font-size:11.5px}
+
+/* status chips */
+.chip{display:inline-block;font-size:11px;font-weight:600;border-radius:3px;padding:1px 7px;white-space:nowrap}
+.c-green{color:var(--green);background:var(--green-bg)}
+.c-amber{color:var(--amber);background:var(--amber-bg)}
+.c-red{color:var(--red);background:var(--red-bg)}
+.c-blue{color:var(--blue);background:var(--blue-bg)}
+.c-gray{color:var(--gray);background:var(--gray-bg)}
+
+/* buttons */
+button{font:inherit;font-size:12.5px;border-radius:4px;border:1px solid var(--border);
+  background:#fff;color:var(--text);padding:5px 12px;cursor:pointer}
+button:hover{background:#f6f8fa}
+button.primary{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:600}
+button.primary:hover{background:#0a4cb5}
+button.danger{color:var(--red);border-color:#e2b4b1}
+button.danger:hover{background:var(--red-bg)}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.linkact{font-size:12px}
+
+/* review cards */
+.review{border-bottom:1px solid var(--border2);padding:12px 14px}
+.review:last-child{border-bottom:none}
+.review .who{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.review .who b{font-size:13.5px}
+.review .who .t{color:var(--dim)}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:2px 12px;margin:8px 0 0;font-size:12.5px}
+.kv .k{color:var(--dim);font-size:11.5px;padding-top:1px}
+.pitchbox{border:1px solid var(--border2);border-left:3px solid var(--blue);background:#fafbfd;
+  padding:7px 10px;margin-top:2px;border-radius:0 3px 3px 0}
+.notice{padding:8px 12px;font-size:12px;color:var(--dim);border-bottom:1px solid var(--border2);background:#fafbfc}
+.empty{padding:14px;color:var(--dim);font-size:12.5px}
+
+/* log */
+.logbox{max-height:400px;overflow:auto;font-family:ui-monospace,SFMono-Regular,Consolas,Menlo,monospace;
+  font-size:11.5px;line-height:1.6;padding:6px 0}
+.logbox .row{padding:0 12px;white-space:pre-wrap;word-break:break-word}
+.lv{display:inline-block;width:44px;font-weight:600}
+.lv-INFO{color:var(--gray)} .lv-WARN{color:var(--amber)} .lv-ERROR{color:var(--red)}
+.lt{color:#98a1ab;margin-right:6px}
+footer{padding:4px 20px 16px;color:#98a1ab;font-size:11px}
 </style>
 </head>
 <body>
-<header>
-  <h1>📚 BookLender — Sales Automation Prototype</h1>
-  <span class="sub">live pipeline · fictional data · in-memory vendors · nothing is emailed</span>
-  <button onclick="post('/demo/reset')">↺ Reset demo</button>
-</header>
 
-<div class="grid">
-  <!-- LEFT: signals + accounts -->
-  <div>
-    <div class="card"><h2>1 · 6sense intent signals</h2><div class="body" id="signals"></div></div>
-    <div class="card"><h2>Zoho CRM · Accounts<span class="count" id="acount"></span></h2><div class="body" id="accounts"><div class="empty">none yet</div></div></div>
-  </div>
-
-  <!-- MIDDLE: the CRM / approval queue -->
-  <div>
-    <div class="gatebar">⛔ HUMAN APPROVAL GATE — nothing below ever reaches Smartlead without an explicit APPROVE, verified server-side</div>
-    <div class="card"><h2>2 · Zoho CRM · Prospects &amp; approval queue<span class="count" id="ccount"></span></h2>
-      <div class="body" id="contacts"><div class="empty">Fire an intent signal to begin →</div></div></div>
-  </div>
-
-  <!-- RIGHT: smartlead + feed -->
-  <div>
-    <div class="card"><h2>3 · Smartlead (sandbox)<span class="count" id="lcount"></span></h2><div class="body" id="leads"><div class="empty">no leads — and there can’t be any until a human approves</div></div></div>
-    <div class="card"><h2>Audit feed</h2><div class="feed" id="feed"></div></div>
+<div class="topbar">
+  <div class="brand">BookLender <span>· RevOps Console</span></div>
+  <span class="envtag">SANDBOX</span>
+  <div class="right">
+    <a onclick="post('/demo/reset')">Reset data</a>
+    <span>v1.4.2</span>
+    <span class="userchip">M. Konda</span>
   </div>
 </div>
 
-<script>
-const F = {
-  first:'First_Name', last:'Last_Name', title:'Title', email:'Email',
-  status:'Approval_Status', pitch:'AI_Personalization', cta:'AI_CTA',
-  research:'AI_Research_Summary', wm:'AI_Work_Model', conf:'AI_Confidence',
-  slid:'Smartlead_Lead_ID', slcamp:'Smartlead_Campaign_ID',
-  approvedBy:'Approved_By', reason:'Rejection_Reason', out:'Outreach_Status'
-};
-async function post(u){ const r = await fetch(u,{method:'POST'}); refresh(); return r; }
-function esc(s){ return (s??'').toString().replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+<div class="kpis" id="kpis"></div>
 
-function contactCard(c){
-  const st = c[F.status]||'NEW', acc = c._account||{};
-  const pending = st==='PENDING_HUMAN_APPROVAL';
-  const canAttack = !['SENT_TO_SMARTLEAD','ACTIVE_SEQUENCE','REPLIED','BOUNCED','UNSUBSCRIBED','COMPLETED'].includes(st) && !c[F.slid];
-  const needsClay = st==='CONTACT_IDENTIFIED';
-  const sent = !!c[F.slid];
-  let html = `<div class="contact">
-    <span class="badge b-${st}">${st.replaceAll('_',' ')}</span>
-    <div class="name">${esc(c[F.first])} ${esc(c[F.last])}</div>
-    <div class="meta">${esc(c[F.title])} · ${esc(acc.Account_Name||'')} · ${esc(c[F.email])}</div>`;
-  if(acc.SixSense_Intent_Score) html += `<div class="section"><span class="lbl">Why this account</span><div class="val">6sense intent <b>${acc.SixSense_Intent_Score}</b> (${esc(acc.SixSense_Intent_Tier)}) — ${esc(acc.SixSense_Intent_Topics||'')}</div></div>`;
-  if(c[F.research]) html += `<div class="section"><span class="lbl">Company research (${esc(c[F.wm]||'?')} · conf ${c[F.conf]??'–'})</span><div class="val">${esc(c[F.research])}</div></div>`;
-  if(c[F.pitch]) html += `<div class="section"><span class="lbl">AI personalization</span><div class="val pitch">“${esc(c[F.pitch])}”<br><b>CTA:</b> ${esc(c[F.cta])}</div></div>`;
-  if(c[F.approvedBy]) html += `<div class="section"><span class="lbl">Approval</span><div class="val">by ${esc(c[F.approvedBy])}</div></div>`;
-  if(c[F.reason]) html += `<div class="section"><span class="lbl">Rejection reason</span><div class="val">${esc(c[F.reason])}</div></div>`;
-  html += `<div class="actions">`;
-  if(needsClay) html += `<button class="primary" onclick="post('/demo/clay/${c.id}')">▶ Clay finishes research + AI pitch</button>`;
-  if(pending){
-    html += `<button class="good" onclick="post('/demo/approve/${c.id}')">✓ APPROVE</button>
-             <button class="danger" onclick="post('/demo/reject/${c.id}')">✕ REJECT</button>
-             <button class="warn" onclick="post('/demo/dnc/${c.id}')">⊘ DO NOT CONTACT</button>`;
-  }
-  if(st==='SENT_TO_SMARTLEAD'||st==='ACTIVE_SEQUENCE'){
-    html += `<button onclick="post('/demo/approve/${c.id}')">↻ Re-deliver approval webhook (proves: still 1 lead)</button>
-             <button onclick="post('/demo/event/reply/${c.id}')">💬 Simulate reply</button>
-             <button onclick="post('/demo/event/unsub/${c.id}')">🚫 Simulate unsubscribe</button>`;
-  }
-  if(canAttack && !pending) html += `<button class="warn" onclick="post('/demo/attack/${c.id}')">⚡ Attack: forged “APPROVED” webhook</button>`;
-  if(pending) html += `<button class="warn" onclick="post('/demo/attack/${c.id}')">⚡ Attack: bypass the human</button>`;
-  html += `</div></div>`;
-  return html;
+<div class="layout">
+  <!-- LEFT -->
+  <div>
+    <div class="panel">
+      <div class="hd">Intent feed — 6sense<span class="cnt" id="sigcnt"></span></div>
+      <table id="signals"></table>
+    </div>
+    <div class="panel">
+      <div class="hd">Accounts — Zoho CRM<span class="cnt" id="acccnt"></span></div>
+      <div id="accounts"><div class="empty">No accounts yet.</div></div>
+    </div>
+  </div>
+
+  <!-- CENTER -->
+  <div>
+    <div class="panel">
+      <div class="hd">Approval queue<span class="cnt" id="pendcnt"></span></div>
+      <div class="notice">Records below require operator review. Dispatch to outreach is blocked
+        server-side until an approval is on file for the record.</div>
+      <div id="queue"><div class="empty">Queue is empty.</div></div>
+    </div>
+    <div class="panel">
+      <div class="hd">All prospects<span class="cnt" id="concnt"></span></div>
+      <div id="prospects"><div class="empty">No prospects yet.</div></div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div>
+    <div class="panel">
+      <div class="hd">Outreach — Smartlead<span class="cnt" id="leadcnt"></span></div>
+      <div id="leads"><div class="empty">No active leads.</div></div>
+    </div>
+    <div class="panel">
+      <div class="hd">System log</div>
+      <div class="logbox" id="log"></div>
+    </div>
+  </div>
+</div>
+
+<footer>BookLender RevOps Console · local sandbox deployment · vendor adapters simulated, no external delivery</footer>
+
+<script>
+const F={first:'First_Name',last:'Last_Name',title:'Title',email:'Email',
+  status:'Approval_Status',pitch:'AI_Personalization',cta:'AI_CTA',
+  research:'AI_Research_Summary',wm:'AI_Work_Model',conf:'AI_Confidence',
+  slid:'Smartlead_Lead_ID',slcamp:'Smartlead_Campaign_ID',
+  approvedBy:'Approved_By',reason:'Rejection_Reason',out:'Outreach_Status'};
+
+const CHIP={PENDING_HUMAN_APPROVAL:['c-amber','Pending review'],
+  SENT_TO_SMARTLEAD:['c-green','In sequence'],ACTIVE_SEQUENCE:['c-green','In sequence'],
+  REPLIED:['c-green','Replied'],COMPLETED:['c-gray','Completed'],
+  REJECTED:['c-red','Rejected'],DO_NOT_CONTACT:['c-red','Do not contact'],
+  BOUNCED:['c-red','Bounced'],UNSUBSCRIBED:['c-red','Unsubscribed'],
+  NEEDS_REVIEW:['c-amber','Needs review'],CONTACT_IDENTIFIED:['c-blue','Enriching'],
+  INTENT_DETECTED:['c-blue','Intent detected'],NEW:['c-gray','New']};
+function chip(st){const[c,l]=CHIP[st]||['c-gray',st];return `<span class="chip ${c}">${l}</span>`}
+function esc(s){return(s??'').toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+async function post(u){const r=await fetch(u,{method:'POST'});refresh();return r}
+
+function reviewCard(c){
+  const acc=c._account||{};
+  return `<div class="review">
+    <div class="who"><b>${esc(c[F.first])} ${esc(c[F.last])}</b>
+      <span class="t">${esc(c[F.title])} · ${esc(acc.Account_Name||'')}</span>
+      <span style="margin-left:auto">${chip(c[F.status])}</span></div>
+    <div class="sub">${esc(c[F.email])}</div>
+    <div class="kv">
+      <div class="k">Intent</div><div>${acc.SixSense_Intent_Score??'–'} (${esc(acc.SixSense_Intent_Tier||'')}) — ${esc(acc.SixSense_Intent_Topics||'')}</div>
+      <div class="k">Work model</div><div>${esc(c[F.wm]||'–')} <span class="sub">confidence ${c[F.conf]??'–'}</span></div>
+      <div class="k">Research</div><div>${esc(c[F.research]||'–')}</div>
+      <div class="k">Draft opening</div><div><div class="pitchbox">${esc(c[F.pitch])}<br><span class="sub">CTA:</span> ${esc(c[F.cta])}</div></div>
+    </div>
+    <div class="btnrow">
+      <button class="primary" onclick="post('/demo/approve/${c.id}')">Approve for outreach</button>
+      <button onclick="post('/demo/reject/${c.id}')">Reject</button>
+      <button class="danger" onclick="post('/demo/dnc/${c.id}')">Do not contact</button>
+      <a class="linkact" style="align-self:center" onclick="post('/demo/attack/${c.id}')">Run gate self-test</a>
+    </div>
+  </div>`;
+}
+
+function prospectRow(c){
+  const acc=c._account||{};const st=c[F.status]||'NEW';
+  let act='';
+  if(st==='SENT_TO_SMARTLEAD'||st==='ACTIVE_SEQUENCE')
+    act=`<a class="linkact" onclick="post('/demo/approve/${c.id}')">Replay webhook</a> ·
+         <a class="linkact" onclick="post('/demo/event/reply/${c.id}')">Sim. reply</a> ·
+         <a class="linkact" onclick="post('/demo/event/unsub/${c.id}')">Sim. unsubscribe</a>`;
+  else if(st==='NEEDS_REVIEW')
+    act=`<a class="linkact" onclick="post('/demo/clay/${c.id}')">Re-run enrichment</a> ·
+         <a class="linkact" onclick="post('/demo/reject/${c.id}')">Reject</a>`;
+  else if(st!=='PENDING_HUMAN_APPROVAL')
+    act=`<a class="linkact" onclick="post('/demo/attack/${c.id}')">Gate self-test</a>`;
+  return `<tr>
+    <td><b>${esc(c[F.first])} ${esc(c[F.last])}</b><div class="sub">${esc(c[F.title])}</div></td>
+    <td>${esc(acc.Account_Name||'')}<div class="sub">${esc(c[F.email])}</div></td>
+    <td>${chip(st)}${c[F.slid]?`<div class="sub mono">lead ${esc(c[F.slid])}</div>`:''}</td>
+    <td class="sub">${act}</td></tr>`;
 }
 
 async function refresh(){
-  const s = await (await fetch('/demo/state')).json();
-  document.getElementById('signals').innerHTML = Object.entries(s.scenarios).map(([k,v])=>
-    `<button class="sigbtn" onclick="post('/demo/signal/${k}')"><span>${esc(v.name)}</span><span style="color:var(--dim)">intent ${v.score}</span></button>`).join('');
-  document.getElementById('acount').textContent = s.accounts.length||'';
-  document.getElementById('accounts').innerHTML = s.accounts.length ? s.accounts.map(a=>
-    `<div class="acct"><b>${esc(a.Account_Name)}</b> <span class="badge b-${a.Prospect_Status}">${esc(a.Prospect_Status||'')}</span><div class="d">${esc(a.Company_Domain)} · ${esc(a.Industry||'')} · ${a.Employees||'?'} employees · intent ${a.SixSense_Intent_Score}</div></div>`).join('') : '<div class="empty">none yet</div>';
-  document.getElementById('ccount').textContent = s.contacts.length||'';
-  document.getElementById('contacts').innerHTML = s.contacts.length ? s.contacts.map(contactCard).join('') : '<div class="empty">Fire an intent signal to begin →</div>';
-  document.getElementById('lcount').textContent = s.smartlead.length||'';
-  document.getElementById('leads').innerHTML = s.smartlead.length ? s.smartlead.map(l=>
-    `<div class="lead"><div class="em">${esc(l.first_name)} ${esc(l.last_name)} &lt;${esc(l.email)}&gt;</div>
-     <div class="cmp">campaign ${esc(l.campaign_id)} · lead #${esc(l.id)}</div>
-     <div class="cmp" style="margin-top:4px">merge vars: {{personalized_pitch}} ✓ {{cta}} ✓ {{job_title}} ✓</div></div>`).join('')
-    : '<div class="empty">no leads — and there can’t be any until a human approves</div>';
-  document.getElementById('feed').innerHTML = s.feed.map(e=>
-    `<div><span class="t">${e.t}</span><span class="k-${e.kind}">${esc(e.text)}</span></div>`).join('');
+  const s=await(await fetch('/demo/state')).json();
+  const cs=s.contacts, pend=cs.filter(c=>c[F.status]==='PENDING_HUMAN_APPROVAL');
+  const active=cs.filter(c=>['SENT_TO_SMARTLEAD','ACTIVE_SEQUENCE'].includes(c[F.status]));
+  const replied=cs.filter(c=>c[F.status]==='REPLIED');
+  const blocked=s.log.filter(e=>e.msg.startsWith('dispatch blocked')).length;
+
+  document.getElementById('kpis').innerHTML=[
+    [s.accounts.length,'Accounts tracked'],[cs.length,'Prospects'],
+    [pend.length,'Awaiting approval'],[s.smartlead.length,'Leads in outreach'],
+    [replied.length,'Replies'],[blocked,'Dispatches blocked']]
+    .map(([n,l])=>`<div class="kpi"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
+
+  document.getElementById('sigcnt').textContent=`(${Object.keys(s.scenarios).length})`;
+  document.getElementById('signals').innerHTML=
+    `<tr><th>Company</th><th class="num">Score</th><th>Received</th><th></th></tr>`+
+    Object.entries(s.scenarios).map(([k,v])=>`<tr>
+      <td>${esc(v.name)}<div class="sub">${esc(v.topics)}</div></td>
+      <td class="num">${v.score}<div class="sub">${esc(v.tier)}</div></td>
+      <td class="sub">${esc(v.received)}</td>
+      <td><a class="linkact" onclick="post('/demo/signal/${k}')">Ingest</a></td></tr>`).join('');
+
+  document.getElementById('acccnt').textContent=s.accounts.length?`(${s.accounts.length})`:'';
+  document.getElementById('accounts').innerHTML=s.accounts.length?
+    `<table><tr><th>Account</th><th class="num">Employees</th><th class="num">Intent</th></tr>`+
+    s.accounts.map(a=>`<tr>
+      <td>${esc(a.Account_Name)}<div class="sub">${esc(a.Company_Domain)} · ${esc(a.Industry||'')}</div></td>
+      <td class="num">${a.Employees??''}</td>
+      <td class="num">${a.SixSense_Intent_Score}<div class="sub">${esc(a.SixSense_Intent_Tier||'')}</div></td></tr>`).join('')+`</table>`
+    :'<div class="empty">No accounts yet.</div>';
+
+  document.getElementById('pendcnt').textContent=pend.length?`(${pend.length})`:'';
+  document.getElementById('queue').innerHTML=pend.length?pend.map(reviewCard).join('')
+    :'<div class="empty">Queue is empty.</div>';
+
+  const others=cs.filter(c=>c[F.status]!=='PENDING_HUMAN_APPROVAL');
+  document.getElementById('concnt').textContent=cs.length?`(${cs.length})`:'';
+  document.getElementById('prospects').innerHTML=others.length?
+    `<table><tr><th>Contact</th><th>Account</th><th>Status</th><th>Actions</th></tr>`+
+    others.map(prospectRow).join('')+`</table>`
+    :'<div class="empty">No prospects yet.</div>';
+
+  document.getElementById('leadcnt').textContent=s.smartlead.length?`(${s.smartlead.length})`:'';
+  document.getElementById('leads').innerHTML=s.smartlead.length?
+    `<table><tr><th>Lead</th><th>Campaign</th></tr>`+
+    s.smartlead.map(l=>`<tr>
+      <td>${esc(l.first_name)} ${esc(l.last_name)}<div class="sub">${esc(l.email)}</div></td>
+      <td class="mono">${esc(l.campaign_id)}<div class="sub">lead ${esc(l.id)}</div></td></tr>`).join('')+`</table>`
+    :'<div class="empty">No active leads.</div>';
+
+  document.getElementById('log').innerHTML=s.log.map(e=>
+    `<div class="row"><span class="lt">${e.t}</span><span class="lv lv-${e.level}">${e.level}</span>${esc(e.msg)}</div>`).join('')
+    ||'<div class="row"><span class="lt">—</span>log empty</div>';
 }
-refresh(); setInterval(refresh, 1500);
+refresh();setInterval(refresh,1500);
 </script>
 </body>
 </html>
