@@ -23,6 +23,7 @@ from .audit import AuditLog
 from .clients.vendors import ApolloHTTPClient, ClayHTTPClient, SmartleadHTTPClient
 from .clients.zoho import ZohoHTTPClient
 from .config import load_settings
+from .envfile import load_env
 from .idempotency import IdempotencyStore
 from .pipeline import apollo_discovery, clay_sync, dispatch, engagement, sixsense
 from .pipeline.context import Context
@@ -31,6 +32,7 @@ from .security import SIGNATURE_HEADER, WebhookAuthError, verify
 
 
 def build_context() -> Context:
+    load_env()
     settings = load_settings(os.environ.get("BOOKLENDER_CONFIG", "config/config.yaml"))
     db = os.environ.get("BOOKLENDER_DB", "booklender.db")
     return Context(

@@ -22,6 +22,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "middleware"))
 from booklender.security import SIGNATURE_HEADER, sign  # noqa: E402
+from booklender.envfile import load_env  # noqa: E402
+load_env()
 
 
 def main() -> None:

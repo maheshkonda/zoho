@@ -20,6 +20,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "middleware"))
 
+from booklender.envfile import load_env  # noqa: E402
+load_env()
+
 from booklender.clients.zoho import ZohoHTTPClient  # noqa: E402
 
 FIELDS_FILE = Path(__file__).resolve().parents[1] / "zoho" / "fields.json"

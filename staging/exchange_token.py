@@ -42,15 +42,28 @@ def main() -> None:
                   "in the API Console (Generate Code tab) and re-run this script.")
         raise SystemExit(1)
 
-    print("\nSUCCESS. Set these environment variables (PowerShell shown):\n")
-    print(f'  $env:ZOHO_CLIENT_ID     = "{client_id}"')
-    print(f'  $env:ZOHO_CLIENT_SECRET = "<the client secret>"')
-    print(f'  $env:ZOHO_REFRESH_TOKEN = "{body["refresh_token"]}"')
-    print(f'  $env:ZOHO_ACCOUNTS_URL  = "{accounts}"')
-    print(f'  $env:ZOHO_API_URL       = "https://www.zohoapis.{dc}"')
-    print("\nThen run:  python scripts/verify_endpoints.py")
-    print("\nNote: the refresh token above was printed to your terminal only. "
-          "Do not commit it, share it, or store it outside env vars / a secrets manager.")
+    # Persist into the repo-root .env (gitignored). Existing unrelated keys
+    # are preserved; ZOHO_* keys are replaced.
+    from pathlib import Path
+    env_path = Path(__file__).resolve().parents[1] / ".env"
+    new_vals = {
+        "ZOHO_CLIENT_ID": client_id,
+        "ZOHO_CLIENT_SECRET": client_secret,
+        "ZOHO_REFRESH_TOKEN": body["refresh_token"],
+        "ZOHO_ACCOUNTS_URL": accounts,
+        "ZOHO_API_URL": f"https://www.zohoapis.{dc}",
+    }
+    lines = []
+    if env_path.exists():
+        lines = [ln for ln in env_path.read_text(encoding="utf-8").splitlines()
+                 if not ln.split("=", 1)[0].strip() in new_vals]
+    lines += [f"{k}={v}" for k, v in new_vals.items()]
+    env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    print(f"\nSUCCESS. Credentials saved to {env_path}")
+    print("This file is gitignored — keep it on this machine only.")
+    print("\nNext:  python scripts/verify_endpoints.py")
+    print("(all scripts and the middleware now read .env automatically)")
 
 
 if __name__ == "__main__":

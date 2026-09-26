@@ -17,6 +17,9 @@ import httpx
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "middleware"))
 
+from booklender.envfile import load_env  # noqa: E402
+load_env()
+
 
 def check(name: str, fn) -> bool:
     try:
