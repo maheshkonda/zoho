@@ -212,8 +212,20 @@ function prospectRow(c){
     <td class="sub">${act}</td></tr>`;
 }
 
+let _last='';let _mousedown=false;
+document.addEventListener('mousedown',()=>{_mousedown=true});
+document.addEventListener('mouseup',()=>{_mousedown=false});
+function userIsSelecting(){
+  const sel=window.getSelection&&window.getSelection();
+  return _mousedown||(sel&&sel.type==='Range'&&!sel.isCollapsed);
+}
 async function refresh(){
-  const s=await(await fetch('/demo/state')).json();
+  let s;
+  try{ s=await(await fetch('/demo/state')).json(); }catch(e){ return; }
+  const snap=JSON.stringify(s);
+  if(snap===_last) return;              // nothing changed: leave the DOM alone
+  if(userIsSelecting()) return;          // don't destroy an active text selection
+  _last=snap;
   document.getElementById('envtag').textContent=s.mode||'SANDBOX';
   const cs=s.contacts, pend=cs.filter(c=>c[F.status]==='PENDING_HUMAN_APPROVAL');
   const active=cs.filter(c=>['SENT_TO_SMARTLEAD','ACTIVE_SEQUENCE'].includes(c[F.status]));
@@ -240,8 +252,8 @@ async function refresh(){
     `<table><tr><th>Account</th><th class="num">Employees</th><th class="num">Intent</th></tr>`+
     s.accounts.map(a=>`<tr>
       <td>${esc(a.Account_Name)}<div class="sub">${esc(a.Company_Domain)} · ${esc(a.Industry||'')}</div></td>
-      <td class="num">${a.Employees??''}</td>
-      <td class="num">${a.SixSense_Intent_Score}<div class="sub">${esc(a.SixSense_Intent_Tier||'')}</div></td></tr>`).join('')+`</table>`
+      <td class="num">${a.Employees??'–'}</td>
+      <td class="num">${a.SixSense_Intent_Score??'–'}<div class="sub">${esc(a.SixSense_Intent_Tier||'')}</div></td></tr>`).join('')+`</table>`
     :'<div class="empty">No accounts yet.</div>';
 
   document.getElementById('pendcnt').textContent=pend.length?`(${pend.length})`:'';

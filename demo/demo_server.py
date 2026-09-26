@@ -386,8 +386,11 @@ def state():
     now = datetime.now(timezone.utc).timestamp()
     if ZOHO_LIVE and _STATE_CACHE and now - _STATE_CACHE[0] < 4:
         return _STATE_CACHE[1]
-    accounts = CTX.zoho.list_accounts(ACCOUNT_LIST_FIELDS)
-    raw_contacts = CTX.zoho.list_contacts(CONTACT_LIST_FIELDS)
+    # Only records the pipeline manages (hides Zoho's sample/imported data)
+    accounts = [a for a in CTX.zoho.list_accounts(ACCOUNT_LIST_FIELDS)
+                if a.get(f.A_PROSPECT_STATUS) or a.get(f.A_INTENT_SCORE) is not None]
+    raw_contacts = [c for c in CTX.zoho.list_contacts(CONTACT_LIST_FIELDS)
+                    if c.get(f.C_APPROVAL_STATUS)]
     acc_by_id = {a.get("id"): a for a in accounts}
     contacts = []
     for c in raw_contacts:
