@@ -30,6 +30,7 @@ from booklender.audit import AuditLog
 from booklender.config import (
     CampaignRule, ContactConfig, ICPConfig, IntentConfig, RetryConfig, Settings,
 )
+from booklender.clients.vendors import ApolloHTTPClient, SmartleadHTTPClient
 from booklender.clients.zoho import ZohoHTTPClient
 from booklender.envfile import load_env
 from booklender.fakes import FakeApollo, FakeClay, FakeSmartlead, FakeZoho
@@ -188,9 +189,15 @@ def build_ctx() -> Context:
         test_mode=False,  # sandbox Smartlead adapter only — no external delivery path
     )
     load_env()
+    campaign_id = _os.environ.get("SMARTLEAD_CAMPAIGN_ID")
+    if SMARTLEAD_LIVE and campaign_id:
+        settings.campaigns = [CampaignRule(campaign_id=campaign_id,
+                                           name="BookLender TEST", when_work_model=[])]
     zoho = ZohoHTTPClient() if ZOHO_LIVE else FakeZoho()
-    ctx = Context(settings=settings, zoho=zoho, apollo=FakeApollo(),
-                  clay=FakeClay(), smartlead=FakeSmartlead(),
+    apollo = ApolloHTTPClient() if APOLLO_LIVE else FakeApollo()
+    smartlead = SmartleadHTTPClient() if SMARTLEAD_LIVE else FakeSmartlead()
+    ctx = Context(settings=settings, zoho=zoho, apollo=apollo,
+                  clay=FakeClay(), smartlead=smartlead,
                   audit=AuditLog(), idem=IdempotencyStore())
     for sc in SCENARIOS.values():
         if sc["person"]:
@@ -202,6 +209,13 @@ import os as _os
 load_env()
 ZOHO_LIVE = (_os.environ.get("BOOKLENDER_ZOHO", "").lower() == "real"
              and _os.environ.get("ZOHO_REFRESH_TOKEN"))
+APOLLO_LIVE = (_os.environ.get("BOOKLENDER_APOLLO", "").lower() == "real"
+               and _os.environ.get("APOLLO_API_KEY"))
+# Real Smartlead requires BOTH the flag and an explicit opt-in, because a
+# started campaign can genuinely email people.
+SMARTLEAD_LIVE = (_os.environ.get("BOOKLENDER_SMARTLEAD", "").lower() == "real"
+                  and _os.environ.get("SMARTLEAD_API_KEY")
+                  and _os.environ.get("BOOKLENDER_ALLOW_REAL_SEND", "").lower() == "yes")
 
 ACCOUNT_LIST_FIELDS = [f.A_NAME, f.A_DOMAIN, f.A_INDUSTRY, f.A_EMPLOYEES,
                        f.A_INTENT_SCORE, f.A_INTENT_TIER, f.A_INTENT_TOPICS,
@@ -254,15 +268,30 @@ def _run_enrichment(contact_id: str):
         return
     sc = next((s for s in SCENARIOS.values()
                if s["person"] and s["person"]["email"] == contact.get(f.C_EMAIL)), None)
-    if not sc or not sc["clay"]:
-        return
+    if sc and sc["clay"]:
+        clay_payload = dict(sc["clay"])
+    else:
+        # Real contact with no Clay table connected yet: honest placeholder
+        # enrichment so the approval/dispatch path can be exercised. Clearly
+        # marked; replaced by real Clay research once the table is wired.
+        first = contact.get(f.C_FIRST) or "there"
+        company = "your company"
+        acc_ref = contact.get(f.C_ACCOUNT)
+        if isinstance(acc_ref, dict) and acc_ref.get("name"):
+            company = acc_ref["name"]
+        clay_payload = {
+            "work_model": "Unknown", "confidence": 0.0,
+            "research_summary": f"[PLACEHOLDER — Clay not connected] Company research for {company} pending Clay table setup.",
+            "personalized_pitch": f"[PLACEHOLDER — Clay not connected] Hi {first}, test personalization for {company} from the BookLender staging pipeline.",
+            "cta": "[PLACEHOLDER] Test CTA.",
+        }
     res = clay_sync.handle_clay_result(
         CTX, {"zoho_contact_id": contact_id,
-              "clay_record_id": f"clay-{contact_id}", **sc["clay"]})
+              "clay_record_id": f"clay-{contact_id}", **clay_payload})
     if res.get("duplicate"):
         log("INFO", f"clay result redelivered contact={contact_id} · idempotent, no-op")
     elif res["status"] == Status.PENDING_HUMAN_APPROVAL.value:
-        log("INFO", f"enrichment complete contact={contact_id} model={sc['clay']['work_model'].upper()} conf={sc['clay']['confidence']}")
+        log("INFO", f"enrichment complete contact={contact_id} model={clay_payload['work_model'].upper()} conf={clay_payload['confidence']}")
         log("INFO", f"status → PENDING_HUMAN_APPROVAL contact={contact_id} · awaiting operator review")
     else:
         log("WARN", f"enrichment incomplete contact={contact_id} · insufficient evidence, status → NEEDS_REVIEW")
@@ -289,6 +318,42 @@ def fire_signal(key: str):
         log("INFO", f"apollo matched {len(ids)} contact(s) · {c[f.C_FIRST]} {c[f.C_LAST]} ({c[f.C_TITLE]}) → CRM + enrichment queue")
         for cid in ids:
             threading.Timer(ENRICH_DELAY_SECONDS, _run_enrichment, args=[cid]).start()
+    res["contact_ids"] = ids
+    return res
+
+
+@app.post("/demo/signal_custom")
+async def fire_custom_signal(payload: dict):
+    domain = (payload.get("domain") or "").strip().lower()
+    if not domain or "." not in domain:
+        raise HTTPException(400, "valid domain required")
+    company = (payload.get("company") or domain).strip()
+    signal = {
+        "sixsense_account_id": f"manual-{domain}",
+        "company_name": company, "domain": domain,
+        "website": f"https://{domain}", "industry": payload.get("industry") or "Software",
+        "employee_count": int(payload.get("employees") or 500),
+        "country": payload.get("country") or "United States",
+        "intent_score": int(payload.get("score") or 85), "intent_tier": "HIGH",
+        "intent_topics": ["Employee Benefits"],
+        "signal_timestamp": datetime.now(timezone.utc).date().isoformat(),
+    }
+    res = sixsense.handle_intent_signal(CTX, signal)
+    if not res.get("qualified"):
+        log("WARN", f"custom signal dropped acct={domain} · {res['reason']}")
+        return res
+    if res.get("duplicate"):
+        log("INFO", f"custom signal duplicate acct={domain} · idempotent, no-op")
+        return res
+    log("INFO", f"custom signal qualified acct={domain} → account upserted")
+    ids = apollo_discovery.discover_contacts(CTX, account_id=res["account_id"], domain=domain)
+    if ids:
+        c = CTX.zoho.get_contact(ids[0])
+        log("INFO", f"apollo matched {len(ids)} contact(s) · {c.get(f.C_FIRST,'')} {c.get(f.C_LAST,'')} ({c.get(f.C_TITLE,'')}) → CRM + enrichment queue")
+        for cid in ids:
+            threading.Timer(ENRICH_DELAY_SECONDS, _run_enrichment, args=[cid]).start()
+    else:
+        log("WARN", f"apollo returned no matching HR contacts for {domain}")
     res["contact_ids"] = ids
     return res
 
@@ -400,7 +465,9 @@ def state():
             acc = acc_by_id.get(acc_ref.get("id"))
         contacts.append({**c, "_account": acc})
     result = {
-        "mode": "ZOHO LIVE" if ZOHO_LIVE else "SANDBOX",
+        "mode": " · ".join([m for m, on in [("ZOHO LIVE", ZOHO_LIVE),
+                                            ("APOLLO LIVE", APOLLO_LIVE),
+                                            ("SMARTLEAD LIVE", SMARTLEAD_LIVE)] if on]) or "SANDBOX",
         "accounts": accounts,
         "contacts": contacts,
         "smartlead": list(CTX.smartlead.leads.values()),
@@ -422,7 +489,7 @@ _STATE_CACHE = None
 if __name__ == "__main__":
     url = "http://localhost:8090"
     print(f"\n  BookLender RevOps Console → {url}")
-    print(f"  Zoho mode: {'LIVE (writes to your real CRM)' if ZOHO_LIVE else 'sandbox (in-memory)'}\n")
+    print(f"  Zoho: {'LIVE' if ZOHO_LIVE else 'sandbox'} · Apollo: {'LIVE' if APOLLO_LIVE else 'sandbox'} · Smartlead: {'LIVE' if SMARTLEAD_LIVE else 'sandbox'} · Clay: sandbox\n")
     try:
         webbrowser.open(url)
     except Exception:

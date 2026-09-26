@@ -117,6 +117,12 @@ footer{padding:4px 20px 16px;color:#98a1ab;font-size:11px}
     <div class="panel">
       <div class="hd">Intent feed — 6sense<span class="cnt" id="sigcnt"></span></div>
       <table id="signals"></table>
+      <div style="padding:10px 12px;border-top:1px solid var(--border2)">
+        <div class="sub" style="margin-bottom:6px">Manual signal (real company domain)</div>
+        <input id="cdomain" placeholder="acme.com" style="width:46%;font:inherit;padding:5px 8px;border:1px solid var(--border);border-radius:4px">
+        <input id="cname" placeholder="Company name" style="width:33%;font:inherit;padding:5px 8px;border:1px solid var(--border);border-radius:4px">
+        <button onclick="customSignal()" style="margin-top:6px">Ingest</button>
+      </div>
     </div>
     <div class="panel">
       <div class="hd">Accounts — Zoho CRM<span class="cnt" id="acccnt"></span></div>
