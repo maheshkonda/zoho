@@ -17,7 +17,9 @@ import urllib.request
 def main() -> None:
     print("Zoho Self Client -> refresh token exchange")
     print("-" * 50)
-    dc = input("Data center [.in for crm.zoho.in / .com for crm.zoho.com] (in/com): ").strip().lower() or "in"
+    dc = input("Data center [.in for crm.zoho.in / .com for crm.zoho.com] (in/com): ").strip().lower().lstrip(".") or "in"
+    if dc not in {"in", "com", "eu", "com.au", "jp", "sa", "com.cn", "ca"}:
+        raise SystemExit(f"Unknown data center {dc!r} — expected one of: in, com, eu, com.au, jp, sa, ca")
     accounts = f"https://accounts.zoho.{dc}"
     client_id = input("Client ID: ").strip()
     client_secret = getpass.getpass("Client Secret (hidden): ").strip()
