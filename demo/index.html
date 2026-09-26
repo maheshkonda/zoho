@@ -179,7 +179,7 @@ function reviewCard(c){
       <span style="margin-left:auto">${chip(c[F.status])}</span></div>
     <div class="sub">${esc(c[F.email])}</div>
     <div class="kv">
-      <div class="k">Intent</div><div>${acc.SixSense_Intent_Score??'–'} (${esc(acc.SixSense_Intent_Tier||'')}) — ${esc(acc.SixSense_Intent_Topics||'')}</div>
+      <div class="k">Intent</div><div>${acc.SixSense_Intent_Score!=null?`${acc.SixSense_Intent_Score} (${esc(acc.SixSense_Intent_Tier||'')}) — ${esc(acc.SixSense_Intent_Topics||'')}`:'–'}</div>
       <div class="k">Work model</div><div>${esc(c[F.wm]||'–')} <span class="sub">confidence ${c[F.conf]??'–'}</span></div>
       <div class="k">Research</div><div>${esc(c[F.research]||'–')}</div>
       <div class="k">Draft opening</div><div><div class="pitchbox">${esc(c[F.pitch])}<br><span class="sub">CTA:</span> ${esc(c[F.cta])}</div></div>

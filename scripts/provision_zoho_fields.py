@@ -73,9 +73,15 @@ def create_field(client: ZohoHTTPClient, module: str, payload: dict) -> None:
     raise last_err  # none of the variants was accepted
 
 
-def existing_field_names(client: ZohoHTTPClient, module: str) -> set[str]:
+def existing_fields(client: ZohoHTTPClient, module: str) -> dict[str, dict]:
+    """api_name -> field metadata (includes id and field_label)."""
     data = client._request("GET", "/crm/v8/settings/fields", params={"module": module})
-    return {fld["api_name"] for fld in data.get("fields", [])}
+    return {fld["api_name"]: fld for fld in data.get("fields", [])}
+
+
+def delete_field(client: ZohoHTTPClient, module: str, field_id: str) -> None:
+    client._request("DELETE", f"/crm/v8/settings/fields/{field_id}",
+                    params={"module": module, "delete_all_associated_data": "true"})
 
 
 def main() -> int:
@@ -89,13 +95,34 @@ def main() -> int:
     for module, fields in spec.items():
         if module.startswith("_"):
             continue
-        existing = existing_field_names(client, module)
+        existing = existing_fields(client, module)
+        by_label = {meta.get("field_label"): (api, meta)
+                    for api, meta in existing.items()}
         for fld in fields:
             name = fld["api_name"]
             if name in existing:
                 print(f"[skip] {module}.{name} already exists")
                 continue
+            # Repair: same label exists under a Zoho-derived api_name (this
+            # happens for labels Zoho can't turn into the intended api_name,
+            # e.g. leading digits in "6sense ..."). Delete and recreate with
+            # the explicit api_name so the pipeline's writes land.
+            mismatch = by_label.get(fld["field_label"])
+            if mismatch and mismatch[0] != name:
+                bad_api, meta = mismatch
+                if args.dry_run:
+                    print(f"[would rename] {module}: '{fld['field_label']}' is "
+                          f"{bad_api}, will delete + recreate as {name}")
+                else:
+                    try:
+                        delete_field(client, module, meta["id"])
+                        print(f"[deleted] {module}.{bad_api} (wrong api_name for '{fld['field_label']}')")
+                    except Exception as e:
+                        print(f"[ERROR] deleting {module}.{bad_api}: {e}", file=sys.stderr)
+                        rc = 1
+                        continue
             payload = {
+                "api_name": name,
                 "field_label": fld["field_label"],
                 **_TYPE_PAYLOAD[fld["data_type"]](fld),
             }
