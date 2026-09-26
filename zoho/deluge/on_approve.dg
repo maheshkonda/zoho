@@ -1,0 +1,75 @@
+// Zoho CRM Deluge function: booklender_on_approve
+// Attached to the Blueprint "During Transition" of PENDING_HUMAN_APPROVAL -> APPROVED
+// on the Contacts module (see zoho/blueprint.md).
+//
+// What it does:
+//   1. Records WHO approved and WHEN (server-side, from the acting user —
+//      not from any form input).
+//   2. Notifies the middleware via a signed webhook containing ONLY the
+//      contact id. The middleware re-reads this record and re-validates
+//      everything before touching Smartlead, so this call is a trigger,
+//      never an authorization.
+//
+// Setup notes:
+//   - Create a Zoho CRM "connection" is NOT used here; the shared HMAC
+//     secret is stored in CRM organization variables? NO — secrets must not
+//     live in CRM fields/variables readable by all users. Instead store it
+//     as an encrypted Zoho CRM connection-less secret via
+//     "Settings > Developer Space > Functions > Arguments" is not encrypted
+//     either, so: use Zoho's OAuth-protected custom connection OR keep the
+//     HMAC secret in Zoho Vault / Functions' encrypted org variable
+//     (Settings > Organization Variables, mark as encrypted? Zoho org
+//     variables are NOT encrypted). RECOMMENDED: use a Zoho "Custom Service"
+//     connection with a static bearer token stored server-side by Zoho, and
+//     have the middleware accept EITHER the HMAC header or that bearer token
+//     for the zoho source. Document the choice in docs/setup-guide.md §Zoho.
+//
+// contactId comes from the Blueprint context.
+
+void booklender_on_approve(String contactId)
+{
+    // 1. Stamp approver + timestamp server-side
+    approver = zoho.loginuserid; // email of the human performing the transition
+    nowStr = zoho.currenttime.toString("yyyy-MM-dd'T'HH:mm:ss");
+    updateMap = Map();
+    updateMap.put("Approval_Timestamp", nowStr);
+    updateMap.put("Approved_By", approver);
+    updateResp = zoho.crm.updateRecord("Contacts", contactId, updateMap);
+    info updateResp;
+
+    // 2. Notify middleware (signed). The payload is a hint only.
+    payload = Map();
+    payload.put("zoho_contact_id", contactId);
+    body = payload.toString();
+
+    // HMAC-SHA256 signature over the raw body (verify Deluge builtin name
+    // in your DC: zoho.encryption.hmacsha256 / hmacsha256()).
+    secret = "%%WEBHOOK_SECRET_ZOHO%%"; // injected at deploy via connection/secret store — never commit a real value
+    signature = "sha256=" + zoho.encryption.hmacsha256(secret, body, "hex");
+
+    headers = Map();
+    headers.put("Content-Type", "application/json");
+    headers.put("X-BookLender-Signature", signature);
+
+    resp = invokeurl
+    [
+        url : "https://YOUR-MIDDLEWARE-HOST/webhooks/zoho/approval"
+        type : POST
+        parameters : body
+        headers : headers
+        detailed : true
+    ];
+    info resp;
+
+    // 3. If the middleware refused (403 = approval gate) or errored, surface
+    //    it on the record so the operator sees it immediately.
+    code = resp.get("responseCode");
+    if(code != 200)
+    {
+        errMap = Map();
+        errMap.put("Smartlead_Sync_Status", "ERROR");
+        errMap.put("Integration_Error", "Approval webhook HTTP " + code + ": " + resp.get("responseText"));
+        errMap.put("Last_Integration_Attempt", nowStr);
+        zoho.crm.updateRecord("Contacts", contactId, errMap);
+    }
+}

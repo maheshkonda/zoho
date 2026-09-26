@@ -1,0 +1,60 @@
+"""Canonical Zoho CRM API field names.
+
+Single source of truth used by the pipelines, the provisioning script
+(scripts/provision_zoho_fields.py) and the field-mapping doc. If a field is
+renamed in Zoho, change it here and re-run provisioning verification.
+"""
+
+# ----- Accounts -----------------------------------------------------------
+A_NAME = "Account_Name"
+A_WEBSITE = "Website"
+A_DOMAIN = "Company_Domain"
+A_INDUSTRY = "Industry"
+A_EMPLOYEES = "Employees"
+A_REVENUE = "Annual_Revenue"
+A_COUNTRY = "Billing_Country"
+A_WORK_MODEL = "Work_Model"
+A_SIXSENSE_ID = "SixSense_Account_ID"
+A_INTENT_SCORE = "SixSense_Intent_Score"
+A_INTENT_TIER = "SixSense_Intent_Tier"
+A_INTENT_TOPICS = "SixSense_Intent_Topics"
+A_LAST_ACTIVITY = "SixSense_Last_Activity"
+A_SOURCE = "SixSense_Source"
+A_PROSPECT_STATUS = "Prospect_Status"
+A_LAST_ENRICHED = "Last_Enriched"
+
+# ----- Contacts -----------------------------------------------------------
+C_FIRST = "First_Name"
+C_LAST = "Last_Name"
+C_TITLE = "Title"
+C_EMAIL = "Email"
+C_LINKEDIN = "LinkedIn_URL"
+C_ACCOUNT = "Account_Name"          # lookup
+C_DEPARTMENT = "Department"
+C_SENIORITY = "Seniority"
+C_WORK_MODEL = "Work_Model"
+C_APOLLO_ID = "Apollo_Person_ID"
+C_CLAY_ID = "Clay_Record_ID"
+C_CLAY_STATUS = "Clay_Enrichment_Status"
+C_AI_WORK_MODEL = "AI_Work_Model"
+C_AI_CONFIDENCE = "AI_Confidence"
+C_AI_RESEARCH = "AI_Research_Summary"
+C_AI_PITCH = "AI_Personalization"
+C_AI_CTA = "AI_CTA"
+C_APPROVAL_STATUS = "Approval_Status"
+C_APPROVAL_TS = "Approval_Timestamp"
+C_APPROVED_BY = "Approved_By"
+C_REJECTION_REASON = "Rejection_Reason"
+C_SMARTLEAD_LEAD_ID = "Smartlead_Lead_ID"
+C_SMARTLEAD_CAMPAIGN_ID = "Smartlead_Campaign_ID"
+C_SMARTLEAD_SYNC_STATUS = "Smartlead_Sync_Status"
+C_SMARTLEAD_SYNC_TS = "Smartlead_Sync_Timestamp"
+C_OUTREACH_STATUS = "Outreach_Status"
+C_REPLY_STATUS = "Reply_Status"
+C_BOUNCE_STATUS = "Bounce_Status"
+C_OPTED_OUT = "Email_Opt_Out"       # Zoho standard field
+C_LAST_OUTREACH = "Last_Outreach_Date"
+C_LAST_ENRICHED = "Last_Enriched"
+C_INTEGRATION_ERROR = "Integration_Error"
+C_LAST_ATTEMPT = "Last_Integration_Attempt"
+C_RETRY_COUNT = "Retry_Count"

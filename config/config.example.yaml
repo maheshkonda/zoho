@@ -1,0 +1,63 @@
+# BookLender sales automation — central configuration.
+# Business rules ONLY. Secrets go in environment variables (see docs/setup-guide.md).
+# Copy to config.yaml and adjust. `test_mode: true` blocks all live Smartlead sends.
+
+test_mode: true
+
+icp:
+  min_employee_count: 100
+  max_employee_count: 20000
+  included_industries: []          # empty = all industries allowed
+  excluded_industries:
+    - "Tobacco"
+    - "Gambling"
+  included_countries:
+    - "United States"
+    - "Canada"
+  excluded_domains:
+    - "competitor-example.com"
+
+intent:
+  min_score: 70
+  accepted_tiers: ["HIGH", "VERY_HIGH"]
+  relevant_topics:
+    - "Employee Benefits"
+    - "Employee Engagement"
+    - "Workplace Culture"
+    - "Employee Wellness"
+    - "Corporate Gifting"
+    - "Learning and Development"
+
+contacts:
+  max_contacts_per_account: 3
+  target_titles:
+    - "CHRO"
+    - "Chief People Officer"
+    - "VP HR"
+    - "VP People"
+    - "HR Director"
+    - "People Operations"
+    - "Employee Experience"
+    - "Benefits"
+    - "Total Rewards"
+    - "Workplace Experience"
+    - "Culture"
+    - "People & Culture"
+    - "HR Business Partner"
+  target_seniorities: ["c_suite", "vp", "director", "head", "manager"]
+
+# Campaign routing: first matching rule wins; a rule with empty
+# when_work_model is the catch-all. IDs live here ONLY — never hard-coded
+# in Deluge, Make, or Zapier.
+campaigns:
+  - campaign_id: "SL-CAMP-REMOTE-001"
+    name: "BookLender HR Outreach — Remote/Hybrid"
+    when_work_model: ["REMOTE", "HYBRID"]
+  - campaign_id: "SL-CAMP-GENERAL-001"
+    name: "BookLender HR Outreach — General"
+    when_work_model: []
+
+retry:
+  max_attempts: 4
+  base_delay_seconds: 2.0
+  max_delay_seconds: 60.0
