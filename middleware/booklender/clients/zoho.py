@@ -43,7 +43,12 @@ class ZohoHTTPClient:
             },
         )
         if resp.status_code != 200:
-            raise PermanentError(f"Zoho token refresh failed: {resp.status_code}")
+            raise PermanentError(
+                f"Zoho token refresh failed: HTTP {resp.status_code} — {resp.text[:300]} "
+                "(common causes: Client Secret was regenerated but .env still has the "
+                "old one — re-run staging/exchange_token.py with a fresh grant code; "
+                "or the refresh token was revoked under Zoho Accounts > Security)"
+            )
         data = resp.json()
         # Zoho returns HTTP 200 with {"error": "..."} for bad credentials
         if "access_token" not in data:
