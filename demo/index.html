@@ -122,6 +122,7 @@ footer{padding:4px 20px 16px;color:#98a1ab;font-size:11px}
         <input id="cdomain" placeholder="acme.com" style="width:46%;font:inherit;padding:5px 8px;border:1px solid var(--border);border-radius:4px">
         <input id="cname" placeholder="Company name" style="width:33%;font:inherit;padding:5px 8px;border:1px solid var(--border);border-radius:4px">
         <button onclick="customSignal()" style="margin-top:6px">Ingest</button>
+        <div class="sub" id="cnote" style="margin-top:6px"></div>
       </div>
     </div>
     <div class="panel">
@@ -176,6 +177,34 @@ const CHIP={PENDING_HUMAN_APPROVAL:['c-amber','Pending review'],
 function chip(st){const[c,l]=CHIP[st]||['c-gray',st];return `<span class="chip ${c}">${l}</span>`}
 function esc(s){return(s??'').toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 async function post(u){const r=await fetch(u,{method:'POST'});refresh();return r}
+async function customSignal(){
+  const domain=document.getElementById('cdomain').value.trim();
+  const company=document.getElementById('cname').value.trim();
+  const note=document.getElementById('cnote');
+  if(!domain){note.textContent='Enter a domain first.';return}
+  note.textContent='Ingesting…';
+  let r;
+  try{
+    r=await fetch('/demo/signal_custom',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({domain,company})});
+  }catch(e){note.textContent='Request failed: '+e;return}
+  if(!r.ok){
+    note.textContent=r.status===404
+      ? 'HTTP 404 — server is running old code. Stop it (Ctrl+C), git pull, start again.'
+      : 'HTTP '+r.status+': '+await r.text();
+    return;
+  }
+  const j=await r.json();
+  if(j.qualified===false){note.textContent='Disqualified: '+j.reason;return}
+  if(j.duplicate){note.textContent='Duplicate signal for today — already processed.';return}
+  if(!(j.contact_ids||[]).length){
+    note.textContent='Account created, but no HR contacts found. If the header badge does not say APOLLO LIVE, real domains return nothing — add APOLLO_API_KEY and BOOKLENDER_APOLLO=real to .env and restart.';
+    return;
+  }
+  note.textContent='OK — '+j.contact_ids.length+' contact(s) found, enrichment running.';
+  document.getElementById('cdomain').value='';document.getElementById('cname').value='';
+  refresh();
+}
 
 function reviewCard(c){
   const acc=c._account||{};
