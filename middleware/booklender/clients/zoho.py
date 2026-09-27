@@ -131,11 +131,19 @@ class ZohoHTTPClient:
         return data.get("data") or []
 
     def delete_records(self, module: str, ids: list[str]) -> None:
-        # Zoho bulk delete: up to 100 ids per call
+        # Zoho bulk delete: up to 100 ids per call. Records land in the
+        # Recycle Bin, where unique-field values still collide with new
+        # records — so purge the bin too (best effort; API availability
+        # varies by edition).
         for i in range(0, len(ids), 100):
             chunk = ",".join(ids[i:i + 100])
             self._request("DELETE", f"/crm/v8/{module}",
                           params={"ids": chunk, "wf_trigger": "false"})
+            try:
+                self._request("DELETE", "/crm/v8/settings/recycle_bin",
+                              params={"ids": chunk})
+            except Exception:
+                pass  # bin purge is a nicety; deletion itself succeeded
 
     def list_contacts(self, fields: list[str]) -> list[dict[str, Any]]:
         data = self._request(

@@ -93,7 +93,16 @@ def discover_contacts(ctx: Context, *, account_id: str, domain: str) -> list[str
                 contact_id = existing["id"]
                 ctx.zoho.update_contact(contact_id, payload)
             else:
-                contact_id = ctx.zoho.upsert_contact(payload)
+                try:
+                    contact_id = ctx.zoho.upsert_contact(payload)
+                except Exception as dup_err:
+                    # A deleted record in Zoho's Recycle Bin can still hold a
+                    # unique Apollo_Person_ID; retry without it rather than
+                    # failing the whole discovery.
+                    if "DUPLICATE" not in str(dup_err).upper():
+                        raise
+                    retry_payload = {k: v for k, v in payload.items() if k != f.C_APOLLO_ID}
+                    contact_id = ctx.zoho.upsert_contact(retry_payload)
         except Exception as e:
             ctx.idem.release(idem_key)
             ctx.audit.record(

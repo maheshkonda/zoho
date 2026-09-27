@@ -284,6 +284,13 @@ def reset():
 
 def _run_enrichment(contact_id: str):
     """Background enrichment completion (simulated Clay table turnaround)."""
+    try:
+        _run_enrichment_inner(contact_id)
+    except Exception as e:
+        log("ERROR", f"enrichment failed contact={contact_id} · {e}")
+
+
+def _run_enrichment_inner(contact_id: str):
     contact = CTX.zoho.get_contact(contact_id)
     if not contact:
         return
@@ -332,8 +339,12 @@ def fire_signal(key: str):
         log("INFO", f"6sense signal duplicate acct={sc['signal']['domain']} · idempotent, no-op")
         return res
     log("INFO", f"6sense signal qualified acct={sc['signal']['domain']} score={sc['signal']['intent_score']} → account upserted")
-    ids = apollo_discovery.discover_contacts(CTX, account_id=res["account_id"],
-                                             domain=res["domain"])
+    try:
+        ids = apollo_discovery.discover_contacts(CTX, account_id=res["account_id"],
+                                                 domain=res["domain"])
+    except Exception as e:
+        log("ERROR", f"contact discovery failed acct={sc['signal']['domain']} · {e}")
+        raise HTTPException(502, f"contact discovery failed: {e}")
     if ids:
         c = CTX.zoho.get_contact(ids[0])
         log("INFO", f"apollo matched {len(ids)} contact(s) · {c[f.C_FIRST]} {c[f.C_LAST]} ({c[f.C_TITLE]}) → CRM + enrichment queue")
@@ -367,7 +378,11 @@ async def fire_custom_signal(payload: dict):
         log("INFO", f"custom signal duplicate acct={domain} · idempotent, no-op")
         return res
     log("INFO", f"custom signal qualified acct={domain} → account upserted")
-    ids = apollo_discovery.discover_contacts(CTX, account_id=res["account_id"], domain=domain)
+    try:
+        ids = apollo_discovery.discover_contacts(CTX, account_id=res["account_id"], domain=domain)
+    except Exception as e:
+        log("ERROR", f"contact discovery failed acct={domain} · {e}")
+        raise HTTPException(502, f"contact discovery failed: {e}")
     if ids:
         c = CTX.zoho.get_contact(ids[0])
         log("INFO", f"apollo matched {len(ids)} contact(s) · {c.get(f.C_FIRST,'')} {c.get(f.C_LAST,'')} ({c.get(f.C_TITLE,'')}) → CRM + enrichment queue")
