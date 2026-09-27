@@ -250,15 +250,36 @@ def index():
 @app.post("/demo/reset")
 def reset():
     global CTX, _STATE_CACHE
+    deleted = {"contacts": 0, "accounts": 0}
+    if ZOHO_LIVE:
+        # True clean slate: delete ONLY pipeline-managed records (those the
+        # console lists), never anything else in the CRM.
+        try:
+            contacts = [c for c in CTX.zoho.list_contacts(CONTACT_LIST_FIELDS)
+                        if c.get(f.C_APPROVAL_STATUS)]
+            if contacts:
+                CTX.zoho.delete_records("Contacts", [c["id"] for c in contacts])
+                deleted["contacts"] = len(contacts)
+            accounts = [a for a in CTX.zoho.list_accounts(ACCOUNT_LIST_FIELDS)
+                        if a.get(f.A_PROSPECT_STATUS) or a.get(f.A_INTENT_SCORE) is not None]
+            if accounts:
+                CTX.zoho.delete_records("Accounts", [a["id"] for a in accounts])
+                deleted["accounts"] = len(accounts)
+        except Exception as e:
+            CTX = build_ctx(); _STATE_CACHE = None
+            with _LOCK:
+                LOG.clear()
+            log("ERROR", f"reset: CRM cleanup failed · {e}")
+            return {"ok": False, "error": str(e)}
     CTX = build_ctx()
     _STATE_CACHE = None
     with _LOCK:
         LOG.clear()
     if ZOHO_LIVE:
-        log("INFO", "adapters reset · Zoho CRM records persist (delete in CRM if needed)")
+        log("INFO", f"reset · removed {deleted['contacts']} contact(s) and {deleted['accounts']} account(s) created by the pipeline · other CRM data untouched")
     else:
         log("INFO", "sandbox reset · pipeline state cleared")
-    return {"ok": True}
+    return {"ok": True, **deleted}
 
 
 def _run_enrichment(contact_id: str):

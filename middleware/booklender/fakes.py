@@ -69,6 +69,11 @@ class FakeZoho:
     def update_contact(self, contact_id, fields):
         self.contacts[contact_id].update(fields)
 
+    def delete_records(self, module, ids):
+        store = self.accounts if module == "Accounts" else self.contacts
+        for i in ids:
+            store.pop(i, None)
+
     def list_accounts(self, fields=None):
         return list(self.accounts.values())
 

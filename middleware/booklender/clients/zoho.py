@@ -130,6 +130,13 @@ class ZohoHTTPClient:
         )
         return data.get("data") or []
 
+    def delete_records(self, module: str, ids: list[str]) -> None:
+        # Zoho bulk delete: up to 100 ids per call
+        for i in range(0, len(ids), 100):
+            chunk = ",".join(ids[i:i + 100])
+            self._request("DELETE", f"/crm/v8/{module}",
+                          params={"ids": chunk, "wf_trigger": "false"})
+
     def list_contacts(self, fields: list[str]) -> list[dict[str, Any]]:
         data = self._request(
             "GET", "/crm/v8/Contacts",
