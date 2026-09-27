@@ -487,6 +487,24 @@ def state():
     now = datetime.now(timezone.utc).timestamp()
     if ZOHO_LIVE and _STATE_CACHE and now - _STATE_CACHE[0] < 4:
         return _STATE_CACHE[1]
+    try:
+        return _build_state(now)
+    except Exception as e:
+        return {
+            "mode": "ZOHO ERROR", "accounts": [], "contacts": [], "smartlead": [],
+            "log": [{"t": datetime.now(timezone.utc).strftime("%H:%M:%S"),
+                     "level": "ERROR", "msg": f"Zoho connection failed · {e}"}],
+            "scenarios": {k: {"name": v["signal"]["company_name"],
+                              "score": v["signal"]["intent_score"],
+                              "tier": v["signal"]["intent_tier"],
+                              "topics": ", ".join(v["signal"]["intent_topics"]),
+                              "received": v["signal"]["signal_timestamp"]}
+                          for k, v in SCENARIOS.items()},
+        }
+
+
+def _build_state(now):
+    global _STATE_CACHE
     # Only records the pipeline manages (hides Zoho's sample/imported data)
     accounts = [a for a in CTX.zoho.list_accounts(ACCOUNT_LIST_FIELDS)
                 if a.get(f.A_PROSPECT_STATUS) or a.get(f.A_INTENT_SCORE) is not None]
