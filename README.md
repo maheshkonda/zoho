@@ -27,7 +27,8 @@ zoho/blueprint.md            Blueprint spec: states, APPROVE/REJECT/DNC, layout,
 zoho/deluge/on_approve.dg    Deluge fn fired by the APPROVE transition
 scripts/provision_zoho_fields.py   schema-aware field provisioning
 scripts/verify_endpoints.py        read-only live smoke test (run first)
-docs/                        architecture, field mapping, setup, runbook, test plan
+docs/                        architecture, field mapping, setup, runbook, test plan,
+                             scope-review-2026-10-01 (phasing + client decisions)
 ```
 
 ## Quick start (development)
