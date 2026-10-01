@@ -1,134 +1,442 @@
-# Scope review with client — 2026-10-01
+# Client requirements register — meeting of 2026-10-01
 
-Notes from the requirements walk-through with Krishna (client). It covers
-items the earlier draft marked "out of scope". This file records what
-was decided, how each item is now phased, who owns what, and what is
-still open.
+This is the full list of what Krishna (the client) raised in the
+requirements walk-through. **Every item the earlier draft marked "out of
+scope" is now a deliverable.** Krishna's instruction was explicit: if it
+can be built, it gets built. Only the phase can change, and each phase
+placement needs a written reason. Items that need his accounts, paperwork
+or money are assigned to him by name.
 
-## 1. Ground rules agreed in the meeting
+---
 
-1. **"Out of scope" means only "we cannot build or deliver this."** If an
-   item is buildable but large, put it in a later phase (P3/P4/P5…) and
-   give the reason. Don't mark it out of scope.
-2. **Anything that needs the client's resources is assigned to the client,**
-   with a precise list of what we need. Examples: phone-number / 10DLC
-   registration, vendor admin accounts, billing access, consent paperwork.
-3. **Phasing is a trade-off between time, priority and effort.** The
-   client is open to reopening budget and timeline. They want each item
-   priced and placed in a phase, not dropped.
+## 0. Ground rules set by Krishna
+
+1. **"Out of scope" may only mean "this cannot be built or delivered."**
+   Large or slow items go into a later phase (P2, P3, P4…) with a written
+   reason and a timeline. They do not get dropped.
+2. **Anything that needs his resources gets assigned to him,** with an exact
+   list of what we need. Examples: RingCentral number / 10DLC registration,
+   TCPA consent, vendor admin and billing accounts, calendar choice.
+3. **Each item is placed by time, priority and effort.** Every item gets an
+   estimate so he can trade them off. Budget and timeline can be reopened
+   (Nathan / Praveen to join that discussion).
 4. **The architecture is built for the long-term vision from day one.**
-   Later features must plug in through defined extension points, not a
-   re-architecture. Low volume now doesn't justify a design that has to be
-   rebuilt at higher volume in 12–24 months.
-5. **North star: one omnichannel portal.** Email, LinkedIn / Sales
-   Navigator, SMS, phone and social DMs for a contact all show as one
-   thread with one status. Two sales agents must never reach the same
-   person through different channels without seeing each other's work.
+   Volume will grow over months and years. When it does, we add components;
+   we never re-architect or re-engineer.
+5. **One platform for every channel.** He is building this instead of using
+   Mailchimp or Constant Contact precisely because single-channel email
+   tools aren't enough. Email, LinkedIn / Sales Navigator, SMS, phone and
+   social DMs must all live in one portal.
+6. **Add a Phase 4 (and later phases if needed).** Send a detailed email
+   with the solution and timeline for every item below.
 
-## 2. Item-by-item disposition
+---
 
-| # | Requirement | Previous position | New position | Phase |
-|---|---|---|---|---|
-| 1 | Standard prompt templates (AI personalization prompts, not email templates) | Partial | In scope: versioned standard prompt templates. A dedicated prompt-management service is not needed yet | P1 |
-| 2 | **Campaign feedback loop**: results, channels, contacts and categories feed the next campaign | Vector DB marked out of scope | **In scope as a core requirement.** Metrics drive campaign tuning as soon as reports exist. A vector DB is optional: propose a low-cost and a high-cost option with tools, costs and staffing | P2 (metrics loop) → P3/P4 (semantic memory) |
-| 3 | Kafka / AWS EventBridge | Out of scope | Stays out for now (no current need). The event interface must allow a bus to be added later without rework | Deferred |
-| 4 | **LinkedIn Sales Navigator two-way sync**: see and reply to Sales Navigator threads from the portal, with status and lead category | Export/import only | **Research (1 day), then commit.** Official API is off-limits: scraping or unofficial APIs risk banning the paid account. Evaluate compliant options (see §4) | P3/P4 |
-| 5 | SMS + phone via RingCentral (incl. DNC / do-not-call) | Out of scope | **In scope, later phase.** 10DLC brand/campaign registration (3–5 weeks) and TCPA consent are **client-owned tasks**. Engineering starts once registration is done | P4 |
-| 6 | **Scheduled contact re-validation / re-enrichment** (quarterly + manual "recheck now"), with proposed changes going to a human approval queue | Out of scope | **In scope, core.** Main use case: a contact changes role or company, so outreach to them is wasted or harmful. Client accepts the enrichment cost | P2 (P3 at latest) |
-| 7 | Hot-context personalization: recent company news, posts, podcasts, Reddit, etc. | Out of scope (LinkedIn) | **In scope via Clay public-source research** (no LinkedIn scraping). Client is satisfied with this | P2 |
-| 8 | Email tracking: open/click, sequences, analytics | In scope | In scope | P1/P2 |
-| 9 | **Heat map inside the email body** (not the landing page) | Suggested Microsoft Clarity instead | **Placeholder: revisit.** Clarity covers landing pages only. The client wants engagement inside the email. See note in §4 | P3/P4 (TBD) |
-| 10 | Auto-reply / referral handling: "John left, contact Derek" → extract Derek, enrich, link to John, stop outreach to John | Partial | **In scope.** Low volume now, but expected to matter within a year | P3 |
-| 11 | Geography check + company-status check (is the company still active?) | Company status out of scope | **Research providers** (people/business directories such as Whitepages, company-registry data). Can be a plugin later | P3/P4 or separate scope |
-| 12 | **Cost dashboard + automatic cost thresholds/toggles** | Auto-toggles out of scope | **In scope as one cost view across all vendors.** Use automatic thresholds/kill-switches where a vendor API allows. Pull cost data via API where possible. Otherwise the dashboard shows "check manually here" with a link. Client will provide admin/billing access where needed | P2/P3 |
-| 13 | Calendar integration: booking link in outreach; agents see own + org calendar (Calendly for Teams / Zoho Bookings) | Out of scope (built-in sync exists) | **In scope:** configure team scheduling and booking-link insertion, and write booked meetings back to the contact timeline | P2/P3 |
+## 1. Omnichannel unified inbox: one view per contact (core requirement)
 
-## 3. Proposed phase layout (to be priced)
+**What Krishna asked**
+- One portal and one view for all sales agents, covering every channel and
+  every communication.
+- If John replies on Sales Navigator, the reply shows in the portal. The
+  same goes for his texts, phone calls and emails. John's full communication
+  history is in one place.
+- Agents **reply from the portal** on any channel. The thread updates and
+  shows "replied", who replied and when.
+- Agents can **mark the lead status / category** from the portal.
+- Two or three agents must never reach the same person at different stages
+  without knowing it. That breaks the company's impression and reputation,
+  especially while the company is growing.
 
-- **P1 (current):** approval-gated email pipeline (6sense → Zoho → Apollo →
-  Clay → human approval → Smartlead → engagement back to Zoho), standard
-  prompt templates, open/click tracking.
-- **P2:** campaign metrics feedback loop (rules/statistics based), scheduled
-  + manual re-enrichment through the approval queue, Clay hot-context
-  research, cost dashboard v1, calendar/booking integration.
-- **P3:** unified contact timeline in the portal, auto-reply/referral
-  extraction, LinkedIn Sales Navigator integration (pending research),
-  cost thresholds/toggles where vendors allow, company-status check.
-- **P4:** SMS + phone via RingCentral (after client-owned 10DLC/TCPA
-  registration), semantic campaign memory (vector store) if volume
-  justifies it, in-email engagement heat map.
+**Must deliver**
+- A contact timeline that merges every inbound and outbound message, call
+  and status change on all channels (email, LinkedIn, SMS, phone, other
+  social DMs).
+- Replies to email, LinkedIn and SMS sent from the portal, with
+  click-to-call / call logging for phone.
+- Thread status (new, replied, awaiting reply), owner agent, and a lead
+  category agents can set from the portal.
+- Collision protection:
+  - one owner per contact
+  - a warning or lock when a second agent tries to contact the same person
+  - a recent-touch indicator across all channels
+- Each person linked to one contact record across their email, phone
+  number and LinkedIn profile (identity resolution).
 
-Each phase gets an effort estimate and a written reason for its placement
-in the follow-up email.
+**Phase:** the core timeline and email in P2. Each other channel joins the
+same timeline when it goes live (P3/P4).
 
-## 4. Technical notes for the follow-up proposal
+---
 
-- **Feedback loop without a vector DB (low cost).** Store per-campaign,
-  per-segment and per-prompt-version outcomes (sent / open / click / reply /
-  positive reply / meeting / bounce / unsub) in a reporting table. Feed the
-  top-performing prompt versions, angles and segments into the next
-  campaign's Clay prompt and routing config. That closes the loop with plain
-  SQL. **Higher-cost upgrade:** add embeddings of messages and replies
-  (pgvector on the same Postgres, or a managed vector DB) for "similar past
-  campaigns" retrieval. Both use the same outcome table, so the upgrade adds
-  to the design without rebuilding it.
-- **LinkedIn.** No scraping and no automation of the client's Sales
-  Navigator session: account bans are close to certain. Options to
-  evaluate: Sales Navigator's official CRM sync, which is partner-only and
-  limited (activity logging for supported CRMs), and third-party
-  unified-inbox providers that sales teams use. Each needs its ToS / account
-  risk assessed and documented before the client decides. Fallback: manual
-  "log LinkedIn touch" in the portal, so the timeline is complete even
-  without automation.
-- **In-email heat map.** Email clients don't run scripts, so cursor/scroll
-  heat maps inside an email aren't technically possible. What is possible:
-  track every link and image region with its own ID and draw a **click
-  map** over the rendered email, plus image-load-based open tracking. Check
-  that this meets the intent before committing.
-- **Cost controls.** Three tiers per vendor. (a) API exposes usage and
-  limits: show usage and set an automatic threshold. (b) API exposes usage
-  only: show usage and alert. (c) Nothing exposed: a "check manually" link.
-  A middleware-side budget guard can still pause *our own* calls to any
-  vendor once a configured spend estimate is reached.
-- **Re-enrichment.** A scheduled job plus a manual trigger re-run Apollo/Clay
-  on contacts that are due. Diffs (title, company, email validity) go to the
-  existing Zoho human-approval pattern; nothing is overwritten
-  automatically. A changed company ends the old sequence and creates a
-  linked new contact.
+## 2. LinkedIn Sales Navigator integration
 
-## 5. Extension points in the current codebase
+**What Krishna asked**
+- His team has done most of its outreach through Sales Navigator for about
+  10 months. Sales Navigator's limited features make it very hard to track
+  which contacts were reached.
+- He wants **automatic integration, direct or indirect**. An
+  export/import process alone is not acceptable.
+- Agents must **see and reply to Sales Navigator messages from the portal**.
+  The portal shows the reply thread, the "replied" status and the lead
+  category the agent set.
+- Prospects often answer an email campaign on LinkedIn instead. Without
+  this sync there are two disconnected views of one conversation, which is
+  exactly what he wants to avoid.
+- He has seen sales outreach companies pull Sales Navigator contacts and
+  statuses into their own dashboards, so he expects this to be doable.
+- He doesn't want to risk his account. The integration must not get it
+  banned.
 
-All of these attach to existing seams. None requires re-architecture.
+**Must deliver**
+- Two-way message sync between Sales Navigator / LinkedIn and the portal:
+  - inbound messages land on the contact timeline
+  - outbound replies are composed in the portal and delivered on LinkedIn
+- A one-time backfill of the last ~10 months of Sales Navigator
+  conversations and contacts, so past outreach can be tracked.
+- LinkedIn connection and message status per contact (invited, connected,
+  messaged, replied) shown in the portal and in Zoho.
+- LinkedIn profile URLs captured during enrichment (Apollo / Zoho / Clay)
+  and stored alongside email, so a LinkedIn thread matches the right
+  contact.
+- **Method:** pick the account-safe way to do this, the same approach the
+  outreach companies he mentioned use. Options:
+  - a sync agent or extension running in each agent's own logged-in session
+  - a vetted third-party LinkedIn messaging/inbox provider
+  - Sales Navigator's official CRM sync, where it applies
+
+  No scraping and no direct use of the LinkedIn API on his account. Put the
+  chosen method, its cost and its account-risk assessment in the follow-up
+  email. The developer committed to a one-day research turnaround and said
+  this is achievable.
+
+**Phase:** P3. The method decision and the history backfill go first.
+
+---
+
+## 3. SMS and phone via RingCentral (including do-not-call)
+
+**What Krishna asked**
+- Text and phone are part of the omnichannel requirement, and he already
+  has RingCentral.
+- The registration and paperwork (10DLC, TCPA consent, numbers) is **his
+  job**. Assign it to him and tell him exactly what we need. That paperwork
+  is not a reason to call the feature out of scope.
+- Phone do-not-call handling is included.
+
+**Must deliver**
+- Two-way SMS through RingCentral APIs: send from the portal, receive into
+  the contact timeline.
+- Click-to-call from the portal, plus call logging (outcome, notes,
+  duration) on the timeline.
+- DNC / opt-out handling across all channels. STOP replies, DNC lists and
+  Zoho DNC flags block SMS, calls and email automatically.
+- A consent record per contact (TCPA).
+
+**Client-owned:** RingCentral 10DLC brand + campaign registration (3–5
+weeks), the TCPA consent process, and number provisioning. We send the
+checklist first.
+
+**Phase:** P4. The reason is the 3–5 week registration lead time. The
+engineering can start in parallel and go live once registration clears.
+
+---
+
+## 4. Campaign feedback loop and historical campaign learning (core requirement)
+
+**What Krishna asked**
+- A complete feedback loop. Campaign results, channels, contacts and
+  categories all feed back to improve the next campaign, cycle after cycle.
+- From the day reports exist, metrics must drive the campaigns.
+- He is not tied to any tool. A vector DB is fine if it's needed, and so is
+  a cheaper alternative. What he wants is the vision built in now, so that
+  in one to two years, at higher volume, nothing has to be re-engineered.
+  New parts should simply plug in.
+- He wants a proposal: low-cost vs high-cost options, tools, costs, and
+  whether we can build it or need to hire someone.
+
+**Must deliver**
+- A store of campaign outcomes by campaign, channel, segment, contact
+  category, prompt version and message angle. The outcomes tracked are
+  sent, open, click, reply, positive reply, meeting, bounce and
+  unsubscribe.
+- An automatic loop that feeds the best-performing segments, prompts and
+  angles into the next campaign's targeting, Clay prompts and routing.
+  Every change goes through human approval.
+- Semantic memory of past campaigns, messages and replies (a vector store)
+  so new campaigns can retrieve similar winning past ones. Built on the
+  same outcome store, so it can be switched on without rework.
+- A written proposal with the options and their monthly costs:
+  - low cost: SQL / pgvector on our existing database
+  - high cost: a managed vector DB plus analytics
+  - staffing: whether a specialist hire is needed
+
+**Phase:** the metrics loop in P2, semantic memory in P3/P4.
+
+---
+
+## 5. Standard prompt templates
+
+**What Krishna asked:** standard, fixed templates for the AI prompts used
+inside the system (not email templates).
+
+**Must deliver:** a versioned library of standard prompt templates, with an
+approval step before a new version goes live. Each version is linked to
+campaign results (feeds §4). A separate prompt-management service is not
+needed.
+
+**Phase:** P1.
+
+---
+
+## 6. Scheduled contact re-validation and re-enrichment (core requirement)
+
+**What Krishna asked**
+- Re-enrich and re-validate contacts **at least quarterly, automatically**.
+  He knows it costs money.
+- A **human approval** decides whether to overwrite the record.
+- A **manual trigger** so someone can run it sooner than quarterly when
+  needed.
+- Main reason: people change roles or companies. Stale contacts make the
+  whole campaign pointless.
+- He wants it automated so the system maintains itself. The developer
+  agreed this is "the core essence" of the requirement.
+
+**Must deliver**
+- A scheduled job (quarterly by default, configurable) plus a manual
+  "recheck now" button for a single contact, a list or a campaign.
+- Re-checks against Apollo / Clay / email verification for title, company,
+  email validity and LinkedIn URL.
+- Detected changes go to an approval queue in Zoho / the portal. Nothing is
+  overwritten without approval.
+- A job change pauses the old sequence. It creates a new linked contact at
+  the new company, and finds a replacement contact at the old account.
+- Each run's cost is shown on the cost dashboard (§10).
+
+**Phase:** P2 (P3 at the latest; Krishna accepted either).
+
+---
+
+## 7. Hot-context personalization
+
+**What Krishna asked**
+- Personalize from what the person or company is doing right now: recent
+  news, expansions, conference appearances, blog posts, social posts. This
+  gets traction much faster than generic campaigns.
+- Not only LinkedIn. People post on Reddit and other places, so reach them
+  in that context.
+- Use Clay for the public sources, and stretch to LinkedIn where it can be
+  done safely.
+
+**Must deliver**
+- Clay research columns covering company news, funding and expansion,
+  conferences, podcasts, blogs, and public social posts (Reddit and others).
+- Hooks fed into the personalization prompt, with the source cited so the
+  approver can check it.
+- LinkedIn activity added where an account-safe method from §2 allows.
+
+**Phase:** P2.
+
+---
+
+## 8. Email tracking, analytics and in-email heat map
+
+**What Krishna asked**
+- Sequence tracking, open and click tracking, and Google Analytics. He
+  called these basic and long-proven.
+- A **visual heat map of the email body itself**, not the landing page.
+  Opens alone aren't enough. He wants to know which parts of the email
+  people actually engaged with.
+- Getting this to P3 or P4 is fine, but it must be delivered.
+- The developer suggested Microsoft Clarity. That covers landing pages
+  only, so it doesn't replace the in-email heat map.
+
+**Must deliver**
+- Sequence, open, click and reply metrics per campaign, contact and link.
+- UTM tagging plus Google Analytics for traffic that lands on the site.
+- Microsoft Clarity heat maps and session recordings on landing pages.
+- **In-email heat map:**
+  - every link, button and image area in the email gets its own tracking ID
+  - clicks are drawn as a heat overlay on the rendered email
+  - results can be broken down by campaign, segment and variant
+
+  Email programs don't run scripts, so scroll and hover inside an inbox
+  can't be measured. The overlay is built from click and image-load data.
+  Say this in the follow-up email.
+
+**Phase:** basic tracking in P1/P2. The in-email heat map is in P3/P4
+(placeholder agreed in the meeting; confirm the approach with Krishna).
+
+---
+
+## 9. Out-of-office, referral and "left the company" replies
+
+**What Krishna asked**
+- Example: we email John. John has left, and the auto-reply says "contact
+  Derek from now on". The system should:
+  - capture Derek
+  - enrich Derek
+  - link John and Derek
+  - stop contacting John
+- These replies are rare today, but roles change fast. If this isn't built
+  now, it will hurt within a year.
+
+**Must deliver**
+- Classify replies into: out-of-office (with a return date), left the
+  company, referral to someone else, wrong person, or a real reply.
+- Extract the new contact's name, email and title. Enrich them, and send
+  them to approval as a new contact linked to the original.
+- The original contact is paused or retired automatically. Out-of-office
+  contacts resume after their return date.
+
+**Phase:** P3.
+
+---
+
+## 10. Cost dashboard with automatic thresholds and toggles
+
+**What Krishna asked**
+- One place showing what each API and account is costing.
+- Automatic controls, thresholds and triggers. He has heard of many
+  companies overspending on APIs and wants to avoid that.
+- Set a threshold wherever a vendor API allows it. Pull cost data wherever
+  an API provides it.
+- If a vendor exposes nothing, the dashboard still lists it with a "check
+  manually here" link. That way he knows both what is visible and what
+  isn't.
+- Use admin or billing accounts if they're needed. He will provide them.
+
+**Must deliver**
+- A dashboard covering every vendor: 6sense, Apollo, Clay, Smartlead, Zoho,
+  RingCentral, LinkedIn tooling, the LLM provider, and hosting.
+- For each vendor, the best tier available:
+  - live usage and an automatic limit
+  - usage and an alert
+  - a manual-check link
+- A middleware budget guard that pauses our own calls to any vendor when a
+  configured daily or monthly budget is reached. This works even when the
+  vendor has no billing API.
+- Alerts by email/Slack at configurable percentages of budget.
+
+**Client-owned:** admin / billing-level access for each vendor that
+supports it.
+
+**Phase:** P2 (dashboard and budget guard), P3 (vendor-side thresholds).
+
+---
+
+## 11. Logging and troubleshooting
+
+**Must deliver:** a central log and error view in the portal, failed-job
+retry, and a runbook. This extends the existing console and
+`docs/runbook.md`.
+
+**Phase:** P1/P2.
+
+---
+
+## 12. Calendar integration and meeting booking
+
+**What Krishna asked**
+- Sync with Calendly or Zoho Calendar, not just a link.
+- Organization-level scheduling. The prospect picks an agent and a time
+  slot and books themselves.
+- Whoever is booking a meeting can see their own calendar and the
+  organization's calendar.
+- (The recording ends partway through this point. Confirm the rest with
+  Krishna.)
+
+**Must deliver**
+- Org-level scheduling through Calendly for Teams or Zoho Bookings, with
+  round-robin or agent selection.
+- The booking link is inserted into outreach automatically.
+- Booked, rescheduled and cancelled meetings write back to the contact
+  timeline and Zoho, and stop the active sequence.
+- An agent calendar plus an org-wide availability view in the portal.
+
+**Client-owned:** choose Calendly for Teams or Zoho Bookings, and provide
+the admin account.
+
+**Phase:** P2.
+
+---
+
+## 13. Geography check and company-status check
+
+**What Krishna asked**
+- Check geography and whether the company is still operating.
+- Services like Whitepages and similar providers exist and may be easy to
+  plug in.
+- This can wait until P3/P4 or a later scope, but it must be planned.
+
+**Must deliver:** a pluggable data-provider check (company registry /
+business-status data, Whitepages-type services) that runs at enrichment and
+re-validation. Inactive or out-of-geography companies are flagged and
+blocked.
+
+**Phase:** P3/P4.
+
+---
+
+## 14. Architecture and scaling (Kafka / EventBridge, vector DB)
+
+**What Krishna asked:** no re-engineering later. Components must plug in as
+volume grows.
+
+**Must deliver**
+- An event interface that the in-process dispatch uses today. A message bus
+  (Kafka or EventBridge) can sit behind it later without code changes to
+  the pipelines.
+- A vector store that can be added to the same outcome data (§4).
+- A channel-adapter pattern, so LinkedIn, SMS, phone and future social
+  channels each plug into the same timeline and engagement pipeline.
 
 | Future capability | Plugs into |
 |---|---|
-| New channels (LinkedIn, SMS, phone) | New client in `middleware/booklender/clients/` + new signed webhook route in `app.py`. Events map onto the same engagement pipeline (`pipeline/engagement.py`) and Zoho timeline |
-| Re-enrichment | Reuse `pipeline/apollo_discovery.py` / `pipeline/clay_sync.py`, triggered by a scheduler. Results land in a pending-approval state guarded by `state_machine.py` |
-| Referral / auto-reply extraction | Branch in `pipeline/engagement.py` reply handling → contact upsert + link |
-| Feedback loop | Outcome events already flow through `pipeline/engagement.py` and `audit.py`. Add a reporting store, and feed results into `config` / prompt versions |
-| Event bus (Kafka/EventBridge) | Replace the in-process dispatch behind the same webhook handlers |
+| New channels (LinkedIn, SMS, phone, social DMs) | New client in `middleware/booklender/clients/` + signed webhook route in `app.py` → `pipeline/engagement.py` → contact timeline |
+| Re-enrichment | `pipeline/apollo_discovery.py` / `pipeline/clay_sync.py`, run by a scheduler; changes held for approval by `state_machine.py` |
+| Referral / out-of-office extraction | Reply branch in `pipeline/engagement.py` → contact upsert + link |
+| Feedback loop | Outcome events already pass through `pipeline/engagement.py` / `audit.py` → reporting store → config / prompt versions |
+| Event bus | Replaces in-process dispatch behind the same handlers |
 
-## 6. Action items
+---
 
-**Us**
-- [ ] Send the detailed follow-up email: revised phases P1–P4, per-item effort, and the reason for each placement.
-- [ ] Feedback loop proposal: low-cost vs high-cost options, tools, monthly costs, and whether a specialist hire is needed.
-- [ ] LinkedIn Sales Navigator research (≈1 day): compliant way to bring threads and status into the portal and reply from it.
-- [ ] RingCentral SMS/voice plan, including the exact list of registration items the client must supply.
-- [ ] Cost-dashboard vendor matrix: which APIs expose usage/limits and which need admin access.
-- [ ] Heat-map follow-up: confirm the click-map approach with the client, and note Microsoft Clarity for landing pages.
-- [ ] Company-status / geography data provider research.
-- [ ] Share implementation notes for the vector-memory option so it can be added later.
+## 15. Phase plan (to be estimated and priced)
 
-**Client (Krishna)**
-- [ ] RingCentral 10DLC brand + campaign registration and TCPA consent process (we send the checklist).
-- [ ] Admin / billing-level access for vendors that support cost thresholds.
-- [ ] Decide on Calendly for Teams vs Zoho Bookings for org-wide scheduling.
-- [ ] Confirm priorities and budget per phase once estimates arrive.
+| Phase | Contents |
+|---|---|
+| **P1** | Approval-gated email pipeline (current build), standard prompt templates, basic open/click tracking, logging |
+| **P2** | Unified contact timeline + email replies from the portal, collision protection, campaign metrics feedback loop, quarterly + manual re-enrichment with approval, Clay hot-context research, cost dashboard + budget guard, calendar integration, UTM/GA + Clarity |
+| **P3** | LinkedIn Sales Navigator two-way sync + 10-month backfill, out-of-office/referral handling, vendor-side cost thresholds, company-status/geography check, in-email heat map |
+| **P4** | RingCentral SMS + phone + DNC (after 10DLC/TCPA clears), semantic campaign memory (vector store), other social DM channels |
 
-## 7. Open questions
+Every row in the follow-up email needs an effort estimate, a timeline and
+the reason it sits in that phase.
 
-- Which social platforms besides LinkedIn are in the DM scope?
-- Re-enrichment cadence: is quarterly the default for every segment, or does it vary by segment?
-- Does a click map inside the email meet the heat-map requirement?
-- Phone: is click-to-call plus call logging enough, or are recording and transcription required?
+---
+
+## 16. Action items
+
+**Developer**
+- [ ] Send a detailed email covering every item above: solution, phase, effort, timeline and the reason for each placement.
+- [ ] LinkedIn Sales Navigator: within one day, pick an account-safe two-way sync method. Include cost, risk, and the plan for backfilling past conversations.
+- [ ] Feedback-loop proposal: low-cost vs high-cost options, tools, monthly cost, staffing (build in-house or hire).
+- [ ] Implementation notes for vector memory, so it can be added later.
+- [ ] RingCentral SMS/voice design, plus a checklist of what Krishna must register and provide.
+- [ ] Cost-dashboard vendor matrix: which vendors give usage data, which allow limits, which need admin access.
+- [ ] In-email heat map approach. Confirm it with Krishna, and include Clarity for landing pages.
+- [ ] Evaluate data providers for the company-status and geography check.
+- [ ] Revised budget discussion with Nathan / Praveen.
+
+**Krishna (client)**
+- [ ] RingCentral 10DLC brand + campaign registration, TCPA consent, and phone numbers.
+- [ ] Admin / billing access for vendors that support cost limits.
+- [ ] Choose Calendly for Teams or Zoho Bookings, and provide admin access.
+- [ ] Sales Navigator seat details for each agent, for the LinkedIn sync.
+- [ ] Rank the phases by priority and confirm budget once estimates arrive.
+
+## 17. Open questions to confirm with Krishna
+
+- Which social platforms besides LinkedIn need DM sync?
+- Calendar requirement: the recording ends partway through. Confirm the remaining asks.
+- Phone: is click-to-call plus logging enough, or are call recording and transcription required?
+- Re-enrichment: is quarterly the default for every segment?
+- Does a click-based heat map overlaid on the email body meet the heat-map requirement?
