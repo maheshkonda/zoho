@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BookLender LinkedIn Sync</title>
+<style>
+  body { font: 14px/1.4 system-ui, sans-serif; margin: 16px; min-width: 320px; color: #141b2d; }
+  label { display: block; margin: 10px 0 4px; font-weight: 600; }
+  input { width: 100%; padding: 6px 8px; box-sizing: border-box; }
+  button { margin-top: 12px; padding: 6px 14px; background: #6b3fd4; color: #fff; border: 0; border-radius: 4px; cursor: pointer; }
+  #result { margin-top: 10px; }
+  .ok { color: #2e7d4f; } .err { color: #9b1c1c; }
+  p.note { color: #5f6673; font-size: 12px; }
+</style>
+</head>
+<body>
+  <h3>BookLender LinkedIn Sync</h3>
+  <label for="portalUrl">Portal URL</label>
+  <input id="portalUrl" placeholder="http://localhost:8091">
+  <label for="token">Your agent token</label>
+  <input id="token" type="password" autocomplete="off">
+  <button id="save">Save and test</button>
+  <div id="result"></div>
+  <p class="note">The extension reads only the conversations you have open in LinkedIn, and fills in replies written in the portal. It never clicks Send for you.</p>
+  <script src="options.js"></script>
+</body>
+</html>

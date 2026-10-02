@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mock LinkedIn Profile</title>
+<style>
+  body { margin: 0; font: 14px/1.45 system-ui, sans-serif; background: #f4f2ee; color: #1d2226; }
+  .card { max-width: 700px; margin: 24px auto; background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 24px; }
+  h1 { margin: 0 0 4px; font-size: 22px; }
+  .muted { color: #666; }
+  a { color: #0a66c2; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1 id="name"></h1>
+  <div class="muted">Mock LinkedIn profile page: /in/<span id="slug"></span></div>
+  <p><a href="/mock-linkedin/messaging">Back to messaging</a></p>
+</div>
+<script>
+const slug = location.pathname.split('/in/')[1].replace(/\/$/, '');
+document.getElementById('slug').textContent = slug;
+const NAMES = { 'jwhitfield-people': 'Jane Whitfield', 'marcus-lee-hr': 'Marcus Lee' };
+document.getElementById('name').textContent = NAMES[slug] || slug;
+</script>
+</body>
+</html>

@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BookLender Inbox</title>
+<style>
+  :root { --ink:#141b2d; --muted:#5f6673; --line:#e3e5ea; --bg:#f6f7f9; --accent:#6b3fd4;
+          --in:#ffffff; --out:#efe9fb; --warn:#8f6200; --warnbg:#fbf1d9; --ok:#2e7d4f; --okbg:#e4f2e9; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.45 system-ui, -apple-system, Segoe UI, sans-serif; color:var(--ink); background:var(--bg); }
+  header { display:flex; align-items:center; gap:12px; padding:10px 16px; background:var(--ink); color:#fff; }
+  header h1 { font-size:16px; margin:0; flex:1; }
+  header input { padding:5px 8px; border-radius:4px; border:0; width:200px; }
+  header button, .btn { padding:6px 12px; border-radius:4px; border:0; background:var(--accent); color:#fff; cursor:pointer; font:inherit; }
+  .btn.secondary { background:#fff; color:var(--ink); border:1px solid var(--line); }
+  main { display:grid; grid-template-columns: 320px 1fr; height: calc(100vh - 48px); }
+  #threads { border-right:1px solid var(--line); overflow:auto; background:#fff; }
+  .thread { padding:10px 14px; border-bottom:1px solid var(--line); cursor:pointer; }
+  .thread:hover, .thread.active { background:#f4f0fb; }
+  .thread .name { font-weight:600; display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .thread .preview { color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .badge { font-size:11px; padding:1px 6px; border-radius:8px; background:#eceef2; color:var(--muted); font-weight:600; }
+  .badge.awaiting { background:var(--warnbg); color:var(--warn); }
+  .badge.li { background:#e3eefa; color:#0a66c2; }
+  #detail { display:flex; flex-direction:column; overflow:hidden; }
+  .contact { padding:12px 16px; background:#fff; border-bottom:1px solid var(--line); display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+  .contact h2 { margin:0; font-size:17px; flex:1 1 220px; }
+  .contact .meta { color:var(--muted); font-size:13px; }
+  .contact select, .contact input { padding:4px 6px; border:1px solid var(--line); border-radius:4px; font:inherit; }
+  #timeline { flex:1; overflow:auto; padding:16px; display:flex; flex-direction:column; gap:8px; }
+  .msg { max-width:70%; padding:8px 12px; border-radius:8px; border:1px solid var(--line); background:var(--in); }
+  .msg.OUT { align-self:flex-end; background:var(--out); }
+  .msg .who { font-size:12px; color:var(--muted); margin-bottom:2px; }
+  .msg.pending { border-style:dashed; opacity:.85; }
+  .flag { color:var(--warn); font-weight:600; }
+  .composer { display:flex; gap:8px; padding:12px 16px; background:#fff; border-top:1px solid var(--line); }
+  .composer textarea { flex:1; min-height:60px; padding:8px; border:1px solid var(--line); border-radius:4px; font:inherit; }
+  #notice { padding:8px 16px; display:none; }
+  #notice.err { display:block; background:#fde8e8; color:#9b1c1c; }
+  #notice.ok { display:block; background:var(--okbg); color:var(--ok); }
+  .empty { color:var(--muted); padding:24px; }
+  @media (max-width: 720px) { main { grid-template-columns:1fr; } #threads { max-height:40vh; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>BookLender Inbox</h1>
+  <span id="who"></span>
+  <input id="token" placeholder="Agent token" autocomplete="off">
+  <button id="signin">Sign in</button>
+</header>
+<main>
+  <section id="threads"><div class="empty">Sign in with your agent token.</div></section>
+  <section id="detail">
+    <div id="notice"></div>
+    <div id="contact" class="contact" hidden></div>
+    <div id="timeline"><div class="empty">Select a conversation.</div></div>
+    <div class="composer" id="composer" hidden>
+      <textarea id="replyText" placeholder="Write a reply. It opens in your LinkedIn tab, ready for you to click Send."></textarea>
+      <button class="btn" id="sendReply">Queue reply</button>
+    </div>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let token = '';
+try { token = localStorage.getItem('bl_token') || ''; } catch (e) {}
+const CHANNEL = { linkedin: 'LinkedIn', email: 'Email', sms: 'SMS', phone: 'Phone' };
+let agent = '', statuses = [], current = null, shownContact = '';
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, { ...opts, headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' } });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || res.statusText);
+  return data;
+}
+function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function notice(text, kind) { const n = $('notice'); n.textContent = text; n.className = kind || ''; if (kind) setTimeout(() => { n.className=''; }, 4000); }
+
+async function loadThreads() {
+  if (!token) return;
+  try {
+    const data = await api('/linkedin/portal/threads');
+    agent = data.agent; statuses = data.statuses;
+    $('who').textContent = 'Signed in as ' + agent;
+    const list = $('threads');
+    if (!data.threads.length) { list.innerHTML = '<div class="empty">No conversations yet. Open LinkedIn with the extension installed.</div>'; return; }
+    // One row per person: group their threads, reply on the latest LinkedIn thread
+    const people = new Map();
+    for (const t of data.threads) {
+      const p = people.get(t.contact_id) || { contact: t.contact, threads: [] };
+      p.threads.push(t); people.set(t.contact_id, p);
+    }
+    list.innerHTML = [...people.values()].map(p => {
+      const t = p.threads.find(x => x.channel === 'linkedin') || p.threads[0];
+      const last = p.threads[0].last_message;
+      const awaiting = p.threads.some(x => x.awaiting_reply);
+      const pending = p.threads.some(x => x.pending_replies);
+      const active = p.threads.some(x => x.thread_id === current);
+      const channels = [...new Set(p.threads.map(x => x.channel))];
+      return `
+      <div class="thread ${active ? 'active' : ''}" data-id="${t.thread_id}">
+        <div class="name">${esc(p.contact.name)} ${channels.map(c => `<span class="badge ${c === 'linkedin' ? 'li' : ''}">${esc(CHANNEL[c] || c)}</span>`).join('')}
+          ${awaiting ? '<span class="badge awaiting">Awaiting reply</span>' : ''}
+          ${pending ? '<span class="badge">Reply waiting in browser</span>' : ''}</div>
+        <div class="preview">${esc(last ? (last.direction === 'OUT' ? 'You: ' : '') + last.body : '')}</div>
+        <div class="meta"><span class="badge">${esc(p.contact.status)}</span> Owner: ${esc(p.contact.owner || 'unassigned')}</div>
+      </div>`;
+    }).join('');
+    list.querySelectorAll('.thread').forEach(el => el.onclick = () => { current = el.dataset.id; loadThreads(); loadDetail(); });
+  } catch (e) { notice(e.message, 'err'); }
+}
+
+async function loadDetail() {
+  if (!current) return;
+  const t = await api('/linkedin/portal/threads/' + current);
+  const c = t.contact;
+  const mine = !c.owner || c.owner === agent;
+  $('contact').hidden = false;
+  const key = JSON.stringify(c);
+  if (key !== shownContact) {  // don't re-render controls the agent may be using
+  shownContact = key;
+  $('contact').innerHTML = `
+    <h2>${esc(c.name)}</h2>
+    <span class="meta">Owner: <b>${esc(c.owner || 'unassigned')}</b>${mine ? '' : ' <span class="flag">(not you)</span>'}</span>
+    <label class="meta">Status <select id="status" ${mine ? '' : 'disabled'}>${statuses.map(s => `<option ${s === c.status ? 'selected' : ''}>${s}</option>`).join('')}</select></label>
+    <label class="meta">Category <input id="category" value="${esc(c.category || '')}" placeholder="e.g. HR" ${mine ? '' : 'disabled'}></label>
+    ${c.profile_url ? `<a class="meta" href="${esc(c.profile_url)}" target="_blank" rel="noopener">LinkedIn profile</a>` : ''}`;
+  $('status').onchange = () => saveContact(c.contact_id);
+  $('category').onchange = () => saveContact(c.contact_id);
+  }
+  $('timeline').innerHTML = t.timeline.map(m => `
+      <div class="msg ${m.direction}">
+        <div class="who">${m.direction === 'IN' ? esc(c.name) : esc(m.agent || 'agent')} · <span class="badge ${m.channel === 'linkedin' ? 'li' : ''}">${esc(CHANNEL[m.channel] || m.channel)}</span>${m.via === 'portal' ? ' · sent from portal' : ''}
+          ${m.collision ? ' · <span class="flag">sent by a non-owner</span>' : ''}</div>
+        ${esc(m.body)}</div>`).join('')
+    + t.outbox.map(o => `
+      <div class="msg OUT pending"><div class="who">${esc(o.agent)} · ${o.status === 'FILLED' ? 'filled in LinkedIn — waiting for Send' : 'queued for the LinkedIn tab'}</div>${esc(o.body)}</div>`).join('');
+  $('timeline').scrollTop = $('timeline').scrollHeight;
+  $('composer').hidden = !mine || t.channel !== 'linkedin';
+}
+
+async function saveContact(id) {
+  try { await api('/linkedin/portal/contacts/' + id, { method: 'POST', body: JSON.stringify({ status: $('status').value, category: $('category').value || null }) });
+        notice('Contact updated', 'ok'); loadThreads(); }
+  catch (e) { notice(e.message, 'err'); }
+}
+
+$('sendReply').onclick = async () => {
+  const text = $('replyText').value.trim();
+  if (!text || !current) return;
+  try { await api(`/linkedin/portal/threads/${current}/reply`, { method: 'POST', body: JSON.stringify({ text }) });
+        $('replyText').value = ''; notice('Reply queued. It will open in your LinkedIn tab for you to send.', 'ok');
+        loadDetail(); loadThreads(); }
+  catch (e) { notice(e.message, 'err'); }
+};
+$('signin').onclick = () => { token = $('token').value.trim(); try { localStorage.setItem('bl_token', token); } catch (e) {} loadThreads(); };
+$('token').value = token;
+loadThreads();
+setInterval(() => { loadThreads(); if (current) loadDetail().catch(() => {}); }, 3000);
+</script>
+</body>
+</html>

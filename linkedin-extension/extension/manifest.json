@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "BookLender LinkedIn Sync",
+  "version": "0.1.0",
+  "description": "Syncs your LinkedIn and Sales Navigator conversations to the BookLender portal and fills in replies written there. You always click Send.",
+  "permissions": ["storage"],
+  "host_permissions": ["http://localhost/*", "http://127.0.0.1/*"],
+  "optional_host_permissions": ["https://*/*"],
+  "background": { "service_worker": "background.js" },
+  "options_page": "options.html",
+  "action": { "default_title": "BookLender LinkedIn Sync", "default_popup": "options.html" },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.linkedin.com/*",
+        "http://localhost/mock-linkedin/*",
+        "http://127.0.0.1/mock-linkedin/*"
+      ],
+      "js": ["sites.js", "content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

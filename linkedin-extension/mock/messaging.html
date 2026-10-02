@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mock LinkedIn Messaging</title>
+<style>
+  body { margin: 0; font: 14px/1.45 system-ui, sans-serif; background: #f4f2ee; color: #1d2226; }
+  .top { background: #fff; border-bottom: 1px solid #ddd; padding: 10px 16px; display: flex; gap: 12px; align-items: center; }
+  .top b { color: #0a66c2; font-size: 18px; }
+  .note { color: #666; font-size: 12px; flex: 1; }
+  .wrap { display: grid; grid-template-columns: 300px 1fr; max-width: 1000px; margin: 16px auto; background: #fff; border: 1px solid #ddd; border-radius: 8px; min-height: 520px; }
+  #conversations { list-style: none; margin: 0; padding: 0; border-right: 1px solid #ddd; }
+  .conv a { display: block; padding: 12px 14px; color: inherit; text-decoration: none; border-bottom: 1px solid #eee; }
+  .conv.active a { background: #eef3f8; border-left: 3px solid #0a66c2; }
+  .conv .preview { color: #666; font-size: 13px; margin: 2px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #conversation { display: flex; flex-direction: column; }
+  #conversation header { padding: 12px 16px; border-bottom: 1px solid #ddd; }
+  #conversation header a { font-weight: 600; color: #1d2226; }
+  #messages { list-style: none; margin: 0; padding: 16px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
+  .message .sender { font-weight: 600; font-size: 13px; }
+  .message .body { margin: 2px 0 0; }
+  .message time { color: #888; font-size: 11px; margin-left: 6px; }
+  .compose { border-top: 1px solid #ddd; padding: 10px 16px; display: flex; gap: 8px; align-items: flex-end; }
+  #compose { flex: 1; min-height: 48px; border: 1px solid #ccc; border-radius: 6px; padding: 8px; }
+  #compose:empty::before { content: "Write a message…"; color: #999; }
+  #send { background: #0a66c2; color: #fff; border: 0; border-radius: 16px; padding: 6px 16px; cursor: pointer; }
+  .sim { background: #fff; border: 1px solid #0a66c2; color: #0a66c2; border-radius: 16px; padding: 4px 12px; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="top">
+  <b>in</b> <span>Messaging</span>
+  <span class="note">Local mock of LinkedIn messaging for testing the BookLender extension. Not connected to LinkedIn.</span>
+  <button class="sim" id="simulate">Simulate incoming message</button>
+  <button class="sim" id="resetMock">Reset mock</button>
+</div>
+<div class="wrap">
+  <ul id="conversations"></ul>
+  <section id="conversation">
+    <header><a class="participant" href="#"></a></header>
+    <ol id="messages"></ol>
+    <div class="compose">
+      <div id="compose" contenteditable="true"></div>
+      <button id="send">Send</button>
+    </div>
+  </section>
+</div>
+<script>
+const SEED = {
+  'thread-2a9f': {
+    name: 'Jane Whitfield', slug: 'jwhitfield-people',
+    messages: [
+      { id: 'urn-1001', fromMe: true, text: 'Hi Jane, thanks for connecting. We help hybrid HR teams run a shared book library for employees.', at: '2026-09-28T14:05:00Z' },
+      { id: 'urn-1002', fromMe: false, text: 'Hi! I saw your email last week too. Could you share pricing for about 800 employees?', at: '2026-10-01T09:12:00Z' },
+    ],
+  },
+  'thread-7c31': {
+    name: 'Marcus Lee', slug: 'marcus-lee-hr',
+    messages: [
+      { id: 'urn-2001', fromMe: false, text: 'Hello, a colleague forwarded me your note about books as an employee perk. Is this available in Canada?', at: '2026-10-01T16:40:00Z' },
+    ],
+  },
+};
+const KEY = 'mock-linkedin-v1';
+let db;
+try { db = JSON.parse(localStorage.getItem(KEY)) || SEED; } catch (e) { db = SEED; }
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) {} };
+const params = new URLSearchParams(location.search);
+let current = params.get('thread') || Object.keys(db)[0];
+
+function profileUrl(t) { return 'https://www.linkedin.com/in/' + t.slug; }
+
+function render() {
+  const list = document.getElementById('conversations');
+  list.innerHTML = '';
+  for (const [id, t] of Object.entries(db)) {
+    const li = document.createElement('li');
+    li.className = 'conv' + (id === current ? ' active' : '');
+    li.dataset.threadId = id; li.dataset.name = t.name; li.dataset.profileUrl = profileUrl(t);
+    const last = t.messages[t.messages.length - 1];
+    li.innerHTML = `<a href="?thread=${id}"><div></div><p class="preview"></p></a>`;
+    li.querySelector('div').textContent = t.name;
+    li.querySelector('.preview').textContent = last ? (last.fromMe ? 'You: ' : '') + last.text : '';
+    list.appendChild(li);
+  }
+  const t = db[current];
+  const conv = document.getElementById('conversation');
+  conv.dataset.threadId = current;
+  const who = conv.querySelector('a.participant');
+  who.textContent = t.name; who.href = '/mock-linkedin/in/' + t.slug; who.dataset.profileUrl = profileUrl(t);
+  const ol = document.getElementById('messages');
+  ol.innerHTML = '';
+  for (const m of t.messages) {
+    const li = document.createElement('li');
+    li.className = 'message';
+    li.dataset.messageId = m.id; li.dataset.fromMe = String(m.fromMe); li.dataset.sentAt = m.at;
+    li.innerHTML = '<span class="sender"></span><time></time><p class="body"></p>';
+    li.querySelector('.sender').textContent = m.fromMe ? 'You' : t.name;
+    li.querySelector('time').textContent = new Date(m.at).toLocaleString();
+    li.querySelector('.body').textContent = m.text;
+    ol.appendChild(li);
+  }
+}
+
+document.getElementById('send').onclick = () => {
+  const box = document.getElementById('compose');
+  const text = box.textContent.trim();
+  if (!text) return;
+  db[current].messages.push({ id: 'urn-' + Date.now(), fromMe: true, text, at: new Date().toISOString() });
+  box.textContent = '';
+  save(); render();
+};
+document.getElementById('simulate').onclick = () => {
+  db[current].messages.push({ id: 'urn-' + Date.now(), fromMe: false,
+    text: 'Thanks, that helps. Can we set up a call next week?', at: new Date().toISOString() });
+  save(); render();
+};
+document.getElementById('resetMock').onclick = () => { try { localStorage.removeItem(KEY); } catch (e) {} location.reload(); };
+render();
+</script>
+</body>
+</html>

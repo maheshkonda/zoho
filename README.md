@@ -19,14 +19,18 @@ middleware/booklender/       FastAPI webhook service (the orchestrator)
   state_machine.py           approval state machine (human-only transitions)
   pipeline/dispatch.py       THE APPROVAL GATE — read this first
   pipeline/…                 6sense, Apollo, Clay, engagement pipelines
+  inbox.py|linkedin_api.py   unified inbox store + API for the LinkedIn extension
+  static/portal.html         portal inbox page (served at /portal)
   clients/…                  Zoho / Apollo / Clay / Smartlead REST clients
   security.py|audit.py|idempotency.py|retry.py
-middleware/tests/            27 acceptance + security tests (offline fakes)
+middleware/tests/            39 acceptance, security and inbox tests (offline fakes)
 zoho/fields.json             custom field definitions (Accounts + Contacts)
 zoho/blueprint.md            Blueprint spec: states, APPROVE/REJECT/DNC, layout, permissions
 zoho/deluge/on_approve.dg    Deluge fn fired by the APPROVE transition
 scripts/provision_zoho_fields.py   schema-aware field provisioning
 scripts/verify_endpoints.py        read-only live smoke test (run first)
+linkedin-extension/          LinkedIn / Sales Navigator sync: Chrome extension,
+                             mock LinkedIn + dev server, end-to-end test
 docs/                        architecture, field mapping, setup, runbook, test plan,
                              scope-review-2026-10-01 (client requirements register)
 ```
@@ -35,7 +39,7 @@ docs/                        architecture, field mapping, setup, runbook, test p
 
 ```bash
 pip install -r requirements.txt
-cd middleware && python -m pytest tests/ -v     # 27/27 pass, fully offline
+cd middleware && python -m pytest tests/ -v     # 39/39 pass, fully offline
 ```
 
 Run the service (staging/prod — see `docs/setup-guide.md` for env vars):
@@ -58,6 +62,10 @@ Built and tested here (offline):
 - ✅ Zoho field definitions + schema-aware provisioning script.
 - ✅ Deluge approval function + complete Blueprint/permissions spec.
 - ✅ Documentation set (architecture, mapping, setup, runbook, test plan).
+- 🧪 LinkedIn sync prototype (`linkedin-extension/`): extension, portal
+  inbox and API, tested end to end in Chromium against a mock LinkedIn page.
+  The selectors for real LinkedIn still have to be calibrated on a live
+  account before a pilot.
 
 Requires live credentials / manual configuration (cannot be done from this
 environment — vendor APIs unreachable and no accounts provisioned):

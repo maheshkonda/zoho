@@ -8,6 +8,8 @@ Endpoints (all HMAC-authenticated, see security.py):
                                    dispatch re-validates against live Zoho
     POST /webhooks/smartlead       Smartlead engagement events
     GET  /healthz
+    /linkedin/*, /portal           LinkedIn extension + portal inbox
+                                   (agent-token auth, see linkedin_api.py)
 
 Run: uvicorn booklender.app:create_app --factory
 Env: BOOKLENDER_CONFIG=/path/to/config.yaml + secrets (docs/setup-guide.md)
@@ -25,6 +27,8 @@ from .clients.zoho import ZohoHTTPClient
 from .config import load_settings
 from .envfile import load_env
 from .idempotency import IdempotencyStore
+from .inbox import InboxStore
+from .linkedin_api import make_router
 from .pipeline import apollo_discovery, clay_sync, dispatch, engagement, sixsense
 from .pipeline.context import Context
 from .retry import PermanentError
@@ -46,9 +50,16 @@ def build_context() -> Context:
     )
 
 
-def create_app(ctx: Context | None = None) -> FastAPI:
+def create_app(ctx: Context | None = None, inbox: InboxStore | None = None) -> FastAPI:
     app = FastAPI(title="BookLender Sales Automation", docs_url=None, redoc_url=None)
+    if inbox is None:
+        # build_context() loads the env file, so read BOOKLENDER_DB after it
+        inbox = InboxStore() if ctx else None
     app.state.ctx = ctx or build_context()
+    if inbox is None:
+        inbox = InboxStore(os.environ.get("BOOKLENDER_DB", "booklender.db") + ".inbox")
+    app.state.inbox = inbox
+    app.include_router(make_router(inbox))
 
     async def _authenticated_body(request: Request, source: str) -> dict:
         body = await request.body()

@@ -1,0 +1,11 @@
+#bl-panel { position: fixed; right: 16px; bottom: 16px; z-index: 2147483647; width: 280px;
+  background: #fff; border: 1px solid #d9dce3; border-left: 4px solid #6b3fd4; border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(20,27,45,.15); font: 13px/1.4 system-ui, sans-serif; color: #141b2d; padding: 8px 10px; }
+#bl-panel .bl-title { font-weight: 700; color: #6b3fd4; margin-bottom: 2px; }
+#bl-panel .bl-status.bl-ok { color: #2e7d4f; }
+#bl-panel .bl-status.bl-warn { color: #8f6200; }
+#bl-panel .bl-status.bl-err { color: #9b1c1c; }
+#bl-panel .bl-items a { display: block; margin-top: 4px; color: #0a66c2; }
+#bl-banner { position: sticky; top: 0; z-index: 2147483646; padding: 8px 16px; background: #e4f2e9; color: #1d5236;
+  font: 600 13px/1.4 system-ui, sans-serif; border-bottom: 1px solid #b8dcc6; }
+#bl-banner.bl-other { background: #fbf1d9; color: #6b4a00; border-color: #ecd59a; }
